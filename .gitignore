@@ -8,7 +8,13 @@ backend/.env
 frontend/node_modules/
 frontend/.expo/
 frontend/dist/
+frontend/.env
 
 # Editor
 .vscode/
 .DS_Store
+
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
