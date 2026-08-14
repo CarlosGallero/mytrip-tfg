@@ -34,6 +34,17 @@ type RegisterFormState = {
   confirm_password: string;
 };
 
+// Estructura de errores por cada campo individual
+type FieldErrors = {
+  first_name?: string;
+  last_name?: string;
+  username?: string;
+  password?: string;
+  confirm_password?: string;
+  country_of_residence?: string;
+  general?: string;
+};
+
 const initialLoginForm: LoginFormState = {
   username: '',
   password: '',
@@ -56,9 +67,23 @@ export default function AuthScreen() {
   const [searchTerm, setSearchTerm] = useState('');
   const [countryModalVisible, setCountryModalVisible] = useState(false);
   const [loading, setLoading] = useState(false);
-  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  
+  // Estado de errores por campo
+  const [errors, setErrors] = useState<FieldErrors>({});
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
 
+  // Limpiar mensaje de éxito automáticamente después de 4 segundos
+  useEffect(() => {
+    if (successMessage) {
+      const timer = setTimeout(() => {
+        setSuccessMessage(null);
+      }, 4000);
+
+      return () => clearTimeout(timer);
+    }
+  }, [successMessage]);
+
+  // Cargar países al montarse el componente
   useEffect(() => {
     let mounted = true;
 
@@ -87,10 +112,7 @@ export default function AuthScreen() {
 
   const filteredCountries = useMemo(() => {
     const normalized = searchTerm.trim().toLowerCase();
-    if (!normalized) {
-      return countries;
-    }
-
+    if (!normalized) return countries;
     return countries.filter((country) => country.toLowerCase().includes(normalized));
   }, [countries, searchTerm]);
 
@@ -98,65 +120,117 @@ export default function AuthScreen() {
   const countryCode = useMemo(() => getCountryCode(selectedCountry), [selectedCountry]);
 
   const resetMessages = () => {
-    setErrorMessage(null);
+    setErrors({});
     setSuccessMessage(null);
   };
 
   const handleSubmit = async () => {
-    if (!selectedCountry) {
-      setErrorMessage('Selecciona un país para continuar.');
-      return;
-    }
-
     resetMessages();
     setLoading(true);
 
+    const newErrors: FieldErrors = {};
+
     try {
       if (mode === 'login') {
-        if (!loginForm.username.trim() || !loginForm.password.trim()) {
-          throw new Error('Completa usuario y contraseña.');
+        // Validación local de Login
+        const username = loginForm.username.trim();
+        const password = loginForm.password;
+
+        if (!username) newErrors.username = 'El nombre de usuario es obligatorio.';
+        if (!password) newErrors.password = 'La contraseña es obligatoria.';
+
+        if (Object.keys(newErrors).length > 0) {
+          setErrors(newErrors);
+          setLoading(false);
+          return;
         }
 
-        await loginUser({
-          username: loginForm.username.trim(),
-          password: loginForm.password,
-        });
+        await loginUser({ username, password });
 
         setSuccessMessage('Sesión iniciada correctamente.');
         Alert.alert('Bienvenido', 'Sesión iniciada correctamente.');
+        setLoading(false);
         return;
       }
 
-      if (
-        !registerForm.first_name.trim() ||
-        !registerForm.last_name.trim() ||
-        !registerForm.username.trim() ||
-        !registerForm.password.trim() ||
-        !registerForm.confirm_password.trim()
-      ) {
-        throw new Error('Completa todos los campos del registro.');
+      // Validación local de Registro
+      const firstName = registerForm.first_name.trim();
+      const lastName = registerForm.last_name.trim();
+      const username = registerForm.username.trim();
+      const password = registerForm.password;
+      const confirmPassword = registerForm.confirm_password;
+
+      if (!firstName) {
+        newErrors.first_name = 'El nombre es obligatorio.';
+      } else if (firstName.length > 49) {
+        newErrors.first_name = 'El nombre no puede exceder 49 caracteres.';
+      }
+
+      if (!lastName) {
+        newErrors.last_name = 'Los apellidos son obligatorios.';
+      } else if (lastName.length > 49) {
+        newErrors.last_name = 'Los apellidos no pueden exceder 49 caracteres.';
+      }
+
+      if (!username) {
+        newErrors.username = 'El nombre de usuario es obligatorio.';
+      } else if (username.length < 5) {
+        newErrors.username = 'Debe tener al menos 5 caracteres.';
+      } else if (username.length > 49) {
+        newErrors.username = 'No puede exceder 49 caracteres.';
+      }
+
+      if (!password) {
+        newErrors.password = 'La contraseña es obligatoria.';
+      } else if (password.length < 6) {
+        newErrors.password = 'Debe tener al menos 6 caracteres.';
+      }
+
+      if (!confirmPassword) {
+        newErrors.confirm_password = 'Debes confirmar la contraseña.';
+      } else if (password !== confirmPassword) {
+        newErrors.confirm_password = 'Las contraseñas no coinciden.';
+      }
+
+      if (!selectedCountry) {
+        newErrors.country_of_residence = 'Selecciona un país de origen.';
+      }
+
+      // Si hay errores de validación previa en el cliente, no llamamos a la API
+      if (Object.keys(newErrors).length > 0) {
+        setErrors(newErrors);
+        setLoading(false);
+        return;
       }
 
       await registerUser({
-        first_name: registerForm.first_name.trim(),
-        last_name: registerForm.last_name.trim(),
-        username: registerForm.username.trim(),
-        password: registerForm.password,
-        confirm_password: registerForm.confirm_password,
+        first_name: firstName,
+        last_name: lastName,
+        username,
+        password,
+        confirm_password: confirmPassword,
         country_of_residence: selectedCountry,
       });
 
       setSuccessMessage('Cuenta creada correctamente. Ya puedes iniciar sesión.');
       setMode('login');
-      setLoginForm({
-        username: registerForm.username.trim(),
-        password: registerForm.password,
-      });
+      setLoginForm({ username, password });
       setRegisterForm(initialRegisterForm);
       Alert.alert('Cuenta creada', 'Ya puedes iniciar sesión con tu usuario.');
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Ha ocurrido un error inesperado.';
-      setErrorMessage(message);
+      
+      // Mapear respuestas del servidor a campos específicos
+      const lowerMsg = message.toLowerCase();
+      if (lowerMsg.includes('usuario') || lowerMsg.includes('username')) {
+        setErrors({ username: message });
+      } else if (lowerMsg.includes('contraseña') || lowerMsg.includes('password')) {
+        setErrors({ password: message });
+      } else if (lowerMsg.includes('país') || lowerMsg.includes('country')) {
+        setErrors({ country_of_residence: message });
+      } else {
+        setErrors({ general: message });
+      }
     } finally {
       setLoading(false);
     }
@@ -172,6 +246,7 @@ export default function AuthScreen() {
           setSelectedCountry(item);
           setCountryModalVisible(false);
           setSearchTerm('');
+          setErrors((prev) => ({ ...prev, country_of_residence: undefined }));
         }}
         style={({ pressed }) => [
           styles.countryRow,
@@ -207,9 +282,6 @@ export default function AuthScreen() {
                   <Text style={styles.brandMarkText}>✦</Text>
                 </View>
                 <Text style={styles.brandText}>MyTrip</Text>
-                <View style={styles.poweredPill}>
-                  <Text style={styles.poweredText}>IA Powered</Text>
-                </View>
               </View>
 
               <Text style={styles.heroTitle}>
@@ -256,148 +328,192 @@ export default function AuthScreen() {
                 </Pressable>
               </View>
 
-              {errorMessage ? <Text style={styles.errorBanner}>{errorMessage}</Text> : null}
+              {/* Banner solo para errores generales que no pertenezcan a un campo especifico */}
+              {errors.general ? <Text style={styles.errorBanner}>{errors.general}</Text> : null}
               {successMessage ? <Text style={styles.successBanner}>{successMessage}</Text> : null}
 
               {mode === 'register' ? (
                 <View style={styles.formGrid}>
                   <View style={styles.halfFieldRow}>
-                    <View style={[styles.fieldHalf, styles.inputShadow]}>
-                      <Text style={styles.label}>Nombre</Text>
+                    {/* Nombre */}
+                    <View style={styles.fieldHalfContainer}>
+                      <View style={[styles.fieldHalf, styles.inputShadow, errors.first_name && styles.fieldErrorBorder]}>
+                        <Text style={styles.label}>Nombre</Text>
+                        <TextInput
+                          placeholder="Tu nombre"
+                          placeholderTextColor={colors.hint}
+                          style={styles.input}
+                          value={registerForm.first_name}
+                          onChangeText={(value) => {
+                            setRegisterForm((current) => ({ ...current, first_name: value }));
+                            setErrors((prev) => ({ ...prev, first_name: undefined }));
+                          }}
+                        />
+                      </View>
+                      {errors.first_name ? <Text style={styles.fieldErrorText}>{errors.first_name}</Text> : null}
+                    </View>
+
+                    {/* Apellidos */}
+                    <View style={styles.fieldHalfContainer}>
+                      <View style={[styles.fieldHalf, styles.inputShadow, errors.last_name && styles.fieldErrorBorder]}>
+                        <Text style={styles.label}>Apellidos</Text>
+                        <TextInput
+                          placeholder="Tus apellidos"
+                          placeholderTextColor={colors.hint}
+                          style={styles.input}
+                          value={registerForm.last_name}
+                          onChangeText={(value) => {
+                            setRegisterForm((current) => ({ ...current, last_name: value }));
+                            setErrors((prev) => ({ ...prev, last_name: undefined }));
+                          }}
+                        />
+                      </View>
+                      {errors.last_name ? <Text style={styles.fieldErrorText}>{errors.last_name}</Text> : null}
+                    </View>
+                  </View>
+
+                  {/* Username */}
+                  <View>
+                    <View style={[styles.field, styles.inputShadow, errors.username && styles.fieldErrorBorder]}>
+                      <Text style={styles.label}>Nombre de usuario</Text>
                       <TextInput
-                        placeholder="Tu nombre"
+                        placeholder="usuario123"
                         placeholderTextColor={colors.hint}
+                        autoCapitalize="none"
+                        autoCorrect={false}
                         style={styles.input}
-                        value={registerForm.first_name}
-                        onChangeText={(value) =>
-                          setRegisterForm((current) => ({ ...current, first_name: value }))
-                        }
+                        value={registerForm.username}
+                        onChangeText={(value) => {
+                          setRegisterForm((current) => ({ ...current, username: value }));
+                          setErrors((prev) => ({ ...prev, username: undefined }));
+                        }}
                       />
                     </View>
-                    <View style={[styles.fieldHalf, styles.inputShadow]}>
-                      <Text style={styles.label}>Apellidos</Text>
+                    {errors.username ? <Text style={styles.fieldErrorText}>{errors.username}</Text> : null}
+                  </View>
+
+                  {/* Password */}
+                  <View>
+                    <View style={[styles.field, styles.inputShadow, errors.password && styles.fieldErrorBorder]}>
+                      <Text style={styles.label}>Contraseña</Text>
                       <TextInput
-                        placeholder="Tus apellidos"
+                        placeholder="••••••••"
                         placeholderTextColor={colors.hint}
+                        secureTextEntry
                         style={styles.input}
-                        value={registerForm.last_name}
-                        onChangeText={(value) =>
-                          setRegisterForm((current) => ({ ...current, last_name: value }))
-                        }
+                        value={registerForm.password}
+                        onChangeText={(value) => {
+                          setRegisterForm((current) => ({ ...current, password: value }));
+                          setErrors((prev) => ({ ...prev, password: undefined }));
+                        }}
                       />
                     </View>
+                    {errors.password ? <Text style={styles.fieldErrorText}>{errors.password}</Text> : null}
                   </View>
 
-                  <View style={[styles.field, styles.inputShadow]}>
-                    <Text style={styles.label}>Nombre de usuario</Text>
-                    <TextInput
-                      placeholder="usuario123"
-                      placeholderTextColor={colors.hint}
-                      autoCapitalize="none"
-                      autoCorrect={false}
-                      style={styles.input}
-                      value={registerForm.username}
-                      onChangeText={(value) =>
-                        setRegisterForm((current) => ({ ...current, username: value }))
-                      }
-                    />
+                  {/* Confirm Password */}
+                  <View>
+                    <View style={[styles.field, styles.inputShadow, errors.confirm_password && styles.fieldErrorBorder]}>
+                      <Text style={styles.label}>Confirmar contraseña</Text>
+                      <TextInput
+                        placeholder="••••••••"
+                        placeholderTextColor={colors.hint}
+                        secureTextEntry
+                        style={styles.input}
+                        value={registerForm.confirm_password}
+                        onChangeText={(value) => {
+                          setRegisterForm((current) => ({ ...current, confirm_password: value }));
+                          setErrors((prev) => ({ ...prev, confirm_password: undefined }));
+                        }}
+                      />
+                    </View>
+                    {errors.confirm_password ? <Text style={styles.fieldErrorText}>{errors.confirm_password}</Text> : null}
                   </View>
 
-                  <View style={[styles.field, styles.inputShadow]}>
-                    <Text style={styles.label}>Contraseña</Text>
-                    <TextInput
-                      placeholder="••••••••"
-                      placeholderTextColor={colors.hint}
-                      secureTextEntry
-                      style={styles.input}
-                      value={registerForm.password}
-                      onChangeText={(value) =>
-                        setRegisterForm((current) => ({ ...current, password: value }))
-                      }
-                    />
+                  {/* Country Selection */}
+                  <View>
+                    <Text style={styles.label}>País de origen</Text>
+                    <Pressable
+                      onPress={() => setCountryModalVisible(true)}
+                      style={({ pressed }) => [
+                        styles.countryButton,
+                        styles.inputShadow,
+                        errors.country_of_residence && styles.fieldErrorBorder,
+                        pressed && styles.countryButtonPressed,
+                      ]}
+                    >
+                      <View style={styles.countryButtonLeft}>
+                        <Text style={styles.countryButtonCode}>{countryCode}</Text>
+                        <Text style={styles.countryButtonLabel}>{selectedCountry}</Text>
+                      </View>
+                      <Text style={styles.countryButtonChevron}>⌄</Text>
+                    </Pressable>
+                    {errors.country_of_residence ? (
+                      <Text style={styles.fieldErrorText}>{errors.country_of_residence}</Text>
+                    ) : null}
                   </View>
 
-                  <View style={[styles.field, styles.inputShadow]}>
-                    <Text style={styles.label}>Confirmar contraseña</Text>
-                    <TextInput
-                      placeholder="••••••••"
-                      placeholderTextColor={colors.hint}
-                      secureTextEntry
-                      style={styles.input}
-                      value={registerForm.confirm_password}
-                      onChangeText={(value) =>
-                        setRegisterForm((current) => ({ ...current, confirm_password: value }))
-                      }
-                    />
+                  {/* Currency Auto-detected */}
+                  <Text style={styles.label}>Divisa</Text>
+                  <View style={styles.currencyCard}>
+                    <View style={styles.currencyLeft}>
+                      <View style={styles.currencyIcon}>
+                        <Text style={styles.currencyIconText}></Text>
+                      </View>
+                      <View>
+                        <Text style={styles.currencyText}>
+                          {currencyInfo.code} — {currencyInfo.name}
+                        </Text>
+                        <Text style={styles.currencyHint}>Auto-detectado</Text>
+                      </View>
+                    </View>
+
+                    <View style={styles.currencyChip}>
+                      <Text style={styles.currencyChipText}>Auto-detectado</Text>
+                    </View>
                   </View>
                 </View>
               ) : (
+                /* Formularios de Login con errores individuales */
                 <View style={styles.formGrid}>
-                  <View style={[styles.field, styles.inputShadow]}>
-                    <Text style={styles.label}>Correo electrónico o usuario</Text>
-                    <TextInput
-                      placeholder="usuario@correo.com"
-                      placeholderTextColor={colors.hint}
-                      autoCapitalize="none"
-                      autoCorrect={false}
-                      style={styles.input}
-                      value={loginForm.username}
-                      onChangeText={(value) =>
-                        setLoginForm((current) => ({ ...current, username: value }))
-                      }
-                    />
+                  <View>
+                    <View style={[styles.field, styles.inputShadow, errors.username && styles.fieldErrorBorder]}>
+                      <Text style={styles.label}>Usuario</Text>
+                      <TextInput
+                        placeholder="Nombre de usuario"
+                        placeholderTextColor={colors.hint}
+                        autoCapitalize="none"
+                        autoCorrect={false}
+                        style={styles.input}
+                        value={loginForm.username}
+                        onChangeText={(value) => {
+                          setLoginForm((current) => ({ ...current, username: value }));
+                          setErrors((prev) => ({ ...prev, username: undefined }));
+                        }}
+                      />
+                    </View>
+                    {errors.username ? <Text style={styles.fieldErrorText}>{errors.username}</Text> : null}
                   </View>
 
-                  <View style={[styles.field, styles.inputShadow]}>
-                    <Text style={styles.label}>Contraseña</Text>
-                    <TextInput
-                      placeholder="••••••••"
-                      placeholderTextColor={colors.hint}
-                      secureTextEntry
-                      style={styles.input}
-                      value={loginForm.password}
-                      onChangeText={(value) =>
-                        setLoginForm((current) => ({ ...current, password: value }))
-                      }
-                    />
+                  <View>
+                    <View style={[styles.field, styles.inputShadow, errors.password && styles.fieldErrorBorder]}>
+                      <Text style={styles.label}>Contraseña</Text>
+                      <TextInput
+                        placeholder="••••••••"
+                        placeholderTextColor={colors.hint}
+                        secureTextEntry
+                        style={styles.input}
+                        value={loginForm.password}
+                        onChangeText={(value) => {
+                          setLoginForm((current) => ({ ...current, password: value }));
+                          setErrors((prev) => ({ ...prev, password: undefined }));
+                        }}
+                      />
+                    </View>
+                    {errors.password ? <Text style={styles.fieldErrorText}>{errors.password}</Text> : null}
                   </View>
                 </View>
               )}
-
-              <Text style={styles.label}>País de origen</Text>
-              <Pressable
-                onPress={() => setCountryModalVisible(true)}
-                style={({ pressed }) => [
-                  styles.countryButton,
-                  styles.inputShadow,
-                  pressed && styles.countryButtonPressed,
-                ]}
-              >
-                <View style={styles.countryButtonLeft}>
-                  <Text style={styles.countryButtonCode}>{countryCode}</Text>
-                  <Text style={styles.countryButtonLabel}>{selectedCountry}</Text>
-                </View>
-                <Text style={styles.countryButtonChevron}>⌄</Text>
-              </Pressable>
-
-              <Text style={styles.label}>Divisa</Text>
-              <View style={styles.currencyCard}>
-                <View style={styles.currencyLeft}>
-                  <View style={styles.currencyIcon}>
-                    <Text style={styles.currencyIconText}>€</Text>
-                  </View>
-                  <View>
-                    <Text style={styles.currencyText}>
-                      {currencyInfo.code} — {currencyInfo.name}
-                    </Text>
-                    <Text style={styles.currencyHint}>Auto-detectado</Text>
-                  </View>
-                </View>
-
-                <View style={styles.currencyChip}>
-                  <Text style={styles.currencyChipText}>Auto-detectado</Text>
-                </View>
-              </View>
 
               <Pressable
                 onPress={handleSubmit}
@@ -525,7 +641,6 @@ const styles = StyleSheet.create({
     borderRadius: 24,
     backgroundColor: 'rgba(255,255,255,0.18)',
     alignItems: 'center',
-    justifyContent: 'center',
   },
   brandMarkText: {
     color: colors.white,
@@ -538,19 +653,6 @@ const styles = StyleSheet.create({
     fontWeight: '800',
     letterSpacing: -0.4,
     flex: 1,
-  },
-  poweredPill: {
-    paddingHorizontal: 14,
-    paddingVertical: 8,
-    borderRadius: 999,
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.25)',
-    backgroundColor: 'rgba(255,255,255,0.08)',
-  },
-  poweredText: {
-    color: colors.white,
-    fontSize: 12,
-    fontWeight: '700',
   },
   heroTitle: {
     color: colors.white,
@@ -637,8 +739,10 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     gap: 12,
   },
-  fieldHalf: {
+  fieldHalfContainer: {
     flex: 1,
+  },
+  fieldHalf: {
     borderRadius: theme.radius.lg,
     backgroundColor: colors.surface,
     borderWidth: 1,
@@ -653,6 +757,17 @@ const styles = StyleSheet.create({
     borderColor: colors.border,
     paddingHorizontal: 16,
     paddingVertical: 14,
+  },
+  fieldErrorBorder: {
+    borderColor: colors.danger,
+    borderWidth: 1.5,
+  },
+  fieldErrorText: {
+    color: colors.danger,
+    fontSize: 12,
+    fontWeight: '600',
+    marginTop: 4,
+    marginLeft: 4,
   },
   inputShadow: {
     shadowColor: colors.shadow,
@@ -685,7 +800,6 @@ const styles = StyleSheet.create({
     borderColor: colors.border,
     paddingHorizontal: 16,
     paddingVertical: 16,
-    marginBottom: 16,
   },
   countryButtonPressed: {
     opacity: 0.92,
@@ -719,7 +833,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.surfaceSoft,
     paddingHorizontal: 16,
     paddingVertical: 16,
-    marginBottom: 20,
+    marginBottom: 10,
   },
   currencyLeft: {
     flexDirection: 'row',
@@ -774,6 +888,7 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 10 },
     shadowRadius: 18,
     elevation: 8,
+    marginTop: 10,
   },
   primaryButtonPressed: {
     transform: [{ scale: 0.99 }],

@@ -41,6 +41,7 @@ async def login_user(credentials: UserLogin, db = Depends(get_database)):
             detail="La cuenta está desactivada."
         )
 
+    # Ahora UserService.verify_user_password no requiere await (es sincrónico)
     if not UserService.verify_user_password(user, credentials.password):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,

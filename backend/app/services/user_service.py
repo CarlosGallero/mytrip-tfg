@@ -1,3 +1,4 @@
+from datetime import datetime, timezone
 from bson.objectid import ObjectId
 from fastapi import HTTPException, status
 from app.models.user import UserCreate, UserResponse
@@ -9,19 +10,6 @@ class UserService:
     
     @staticmethod
     async def create_user(db, user: UserCreate) -> UserResponse:
-        """
-        Crea un nuevo usuario en la base de datos.
-        
-        Args:
-            db: Instancia de base de datos
-            user: Datos del usuario a crear
-            
-        Returns:
-            UserResponse con los datos del usuario creado
-            
-        Raises:
-            HTTPException: Si el username ya existe
-        """
         existing_user = await db["users"].find_one({"username": user.username})
         if existing_user:
             raise HTTPException(
@@ -38,6 +26,7 @@ class UserService:
             "hashed_password": hash_password(user.password),
             "country_of_residence": user.country_of_residence,
             "default_currency": default_currency,
+            "created_at": datetime.now(timezone.utc),  # Añadido timestamp
             "is_active": True
         }
 
@@ -59,15 +48,15 @@ class UserService:
     
     @staticmethod
     async def get_user_by_id(db, user_id: str):
-        """Obtiene un usuario por su ID."""
+        """Obtiene un usuario por su ID de forma segura."""
         try:
             return await db["users"].find_one({"_id": ObjectId(user_id)})
         except Exception:
             return None
     
     @staticmethod
-    async def verify_user_password(user: dict, password: str) -> bool:
-        """Verifica la contraseña de un usuario."""
+    def verify_user_password(user: dict, password: str) -> bool:
+        """Verifica la contraseña de un usuario (Sincrónico)."""
         if not user or "hashed_password" not in user:
             return False
         return verify_password(password, user["hashed_password"])
