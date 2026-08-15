@@ -164,11 +164,17 @@ const styles = StyleSheet.create({
   logoutLink: {
     marginTop: 18,
     paddingVertical: 10,
+    backgroundColor: '#fdecef',
+    borderRadius: 12,
+    paddingHorizontal: 18,
+    borderWidth: 1,
+    borderColor: colors.danger,
   },
   logoutLinkText: {
-    color: colors.primary,
-    fontWeight: '700',
+    color: colors.danger,
+    fontWeight: '800',
     fontSize: 14,
+    textAlign: 'center',
   },
   header: {
     flexDirection: 'row',
@@ -191,16 +197,16 @@ const styles = StyleSheet.create({
     fontWeight: '800',
   },
   logoutButton: {
-    backgroundColor: colors.surface,
+    backgroundColor: '#fdecef',
     borderWidth: 1,
-    borderColor: colors.border,
+    borderColor: colors.danger,
     borderRadius: 12,
     paddingHorizontal: 12,
     paddingVertical: 8,
   },
   logoutButtonText: {
-    color: colors.text,
-    fontWeight: '700',
+    color: colors.danger,
+    fontWeight: '800',
   },
   listContent: {
     paddingHorizontal: theme.spacing.xl,

@@ -447,12 +447,12 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
     alignItems: 'center',
     borderWidth: 1,
-    borderColor: colors.border,
-    backgroundColor: colors.background,
+    borderColor: colors.danger,
+    backgroundColor: '#fdecef',
   },
   logoutButtonText: {
-    color: colors.text,
-    fontWeight: '700',
+    color: colors.danger,
+    fontWeight: '800',
   },
   modalOverlay: {
     flex: 1,
