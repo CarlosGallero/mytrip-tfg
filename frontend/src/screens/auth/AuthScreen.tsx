@@ -58,7 +58,11 @@ const initialRegisterForm: RegisterFormState = {
   confirm_password: '',
 };
 
-export default function AuthScreen() {
+type AuthScreenProps = {
+  onLoginSuccess?: () => void;
+};
+
+export default function AuthScreen({ onLoginSuccess }: AuthScreenProps) {
   const [mode, setMode] = useState<AuthMode>('login');
   const [loginForm, setLoginForm] = useState<LoginFormState>(initialLoginForm);
   const [registerForm, setRegisterForm] = useState<RegisterFormState>(initialRegisterForm);
@@ -149,6 +153,7 @@ export default function AuthScreen() {
 
         setSuccessMessage('Sesión iniciada correctamente.');
         Alert.alert('Bienvenido', 'Sesión iniciada correctamente.');
+        onLoginSuccess?.();
         setLoading(false);
         return;
       }

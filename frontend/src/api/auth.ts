@@ -1,6 +1,6 @@
 import * as SecureStore from 'expo-secure-store';
 import { Platform } from 'react-native';
-import { API_BASE_URL } from './client';
+import { API_BASE_URL, apiCall } from './client';
 
 const TOKEN_KEY = 'accessToken';
 const TOKEN_TYPE_KEY = 'tokenType';
@@ -28,6 +28,17 @@ export interface AuthResponse {
   username: string;
   country_of_residence: string;
   default_currency: string;
+}
+
+export type UserProfile = AuthResponse;
+
+export interface UpdateProfilePayload {
+  first_name: string;
+  last_name: string;
+  username: string;
+  country_of_residence: string;
+  password?: string;
+  confirm_password?: string;
 }
 
 export interface TokenResponse {
@@ -209,6 +220,33 @@ export const saveUserInfo = async (userId: string, username: string): Promise<vo
 
   await SecureStore.setItemAsync(USER_ID_KEY, userId);
   await SecureStore.setItemAsync(USERNAME_KEY, username);
+};
+
+/**
+ * Obtiene el perfil completo del usuario autenticado desde el backend.
+ */
+export const getCurrentUser = async (): Promise<UserProfile | null> => {
+  try {
+    return await apiCall<UserProfile>('/auth/me');
+  } catch (error) {
+    console.error('Error fetching current user:', error);
+    return null;
+  }
+};
+
+/**
+ * Actualiza los datos del perfil del usuario autenticado.
+ */
+export const updateUserProfile = async (payload: UpdateProfilePayload): Promise<UserProfile> => {
+  try {
+    return await apiCall<UserProfile>('/auth/me', {
+      method: 'PUT',
+      body: JSON.stringify(payload),
+    });
+  } catch (error) {
+    console.error('Error updating profile:', error);
+    throw error;
+  }
 };
 
 /**
