@@ -4,6 +4,7 @@ import { StatusBar } from 'expo-status-bar';
 
 import { getCurrentUser, isAuthenticated, logoutUser, type UserProfile } from './src/api/auth';
 import AuthScreen from './src/screens/auth/AuthScreen';
+import CreateTripWizardScreen from './src/screens/trip/CreateTripWizardScreen';
 import ProfileScreen from './src/screens/profile/ProfileScreen';
 import MyTripsScreen from './src/screens/trips/MyTripsScreen';
 import { colors } from './src/theme/colors';
@@ -14,6 +15,8 @@ type ActiveTab = 'profile' | 'trips';
 function AuthenticatedApp({ onLogout }: { onLogout: () => void }) {
   const [activeTab, setActiveTab] = useState<ActiveTab>('profile');
   const [profile, setProfile] = useState<UserProfile | null>(null);
+  const [showCreateTripWizard, setShowCreateTripWizard] = useState(false);
+  const [tripDraft, setTripDraft] = useState<{ destination: string }>({ destination: '' });
 
   useEffect(() => {
     const loadUser = async () => {
@@ -25,6 +28,18 @@ function AuthenticatedApp({ onLogout }: { onLogout: () => void }) {
 
     loadUser();
   }, []);
+
+  if (showCreateTripWizard) {
+    return (
+      <CreateTripWizardScreen
+        onCancel={() => setShowCreateTripWizard(false)}
+        onNext={(nextData) => {
+          setTripDraft(nextData);
+          setShowCreateTripWizard(false);
+        }}
+      />
+    );
+  }
 
   return (
     <View style={styles.appShell}>
@@ -63,7 +78,10 @@ function AuthenticatedApp({ onLogout }: { onLogout: () => void }) {
           onLogout={onLogout}
         />
       ) : (
-        <MyTripsScreen onLogout={onLogout} />
+        <MyTripsScreen
+          onLogout={onLogout}
+          onStartTrip={() => setShowCreateTripWizard(true)}
+        />
       )}
     </View>
   );

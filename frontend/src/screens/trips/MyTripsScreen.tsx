@@ -20,9 +20,10 @@ type Trip = {
 
 type MyTripsScreenProps = {
   onLogout?: () => void;
+  onStartTrip?: () => void;
 };
 
-export default function MyTripsScreen({ onLogout }: MyTripsScreenProps) {
+export default function MyTripsScreen({ onLogout, onStartTrip }: MyTripsScreenProps) {
   const [trips] = useState<Trip[]>([]);
 
   const hasTrips = trips.length > 0;
@@ -41,7 +42,7 @@ export default function MyTripsScreen({ onLogout }: MyTripsScreenProps) {
             Crea tu primer viaje y empieza a planificar toda tu aventura.
           </Text>
 
-          <Pressable style={styles.primaryButton}>
+          <Pressable onPress={onStartTrip} style={styles.primaryButton}>
             <Text style={styles.primaryButtonText}>{primaryActionLabel}</Text>
           </Pressable>
 
@@ -58,7 +59,7 @@ export default function MyTripsScreen({ onLogout }: MyTripsScreenProps) {
           <Text style={styles.headerTitle}>Viajes guardados</Text>
         </View>
 
-        <Pressable style={styles.newTripButton}>
+        <Pressable onPress={onStartTrip} style={styles.newTripButton}>
           <Text style={styles.newTripButtonText}>{primaryActionLabel}</Text>
         </Pressable>
       </View>
