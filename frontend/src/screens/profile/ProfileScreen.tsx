@@ -46,6 +46,7 @@ export default function ProfileScreen({ user, onProfileUpdated, onLogout }: Prof
   const [countryModalVisible, setCountryModalVisible] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [saving, setSaving] = useState(false);
+  const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const [errors, setErrors] = useState<FieldErrors>({});
 
   useEffect(() => {
@@ -56,6 +57,18 @@ export default function ProfileScreen({ user, onProfileUpdated, onLogout }: Prof
       setCountry(user.country_of_residence || 'España');
     }
   }, [user]);
+
+  useEffect(() => {
+    if (!successMessage) {
+      return;
+    }
+
+    const timer = setTimeout(() => {
+      setSuccessMessage(null);
+    }, 3500);
+
+    return () => clearTimeout(timer);
+  }, [successMessage]);
 
   useEffect(() => {
     let mounted = true;
@@ -154,9 +167,12 @@ export default function ProfileScreen({ user, onProfileUpdated, onLogout }: Prof
       setPassword('');
       setConfirmPassword('');
       setPasswordEnabled(false);
-      Alert.alert('Perfil actualizado', 'Los cambios se han guardado correctamente.');
+      setSuccessMessage('Cambios realizados correctamente.');
+      setErrors({});
+      Alert.alert('Perfil actualizado', 'Cambios realizados correctamente.');
     } catch (error) {
       const message = error instanceof Error ? error.message : 'No se pudieron guardar los cambios.';
+      setSuccessMessage(null);
       setErrors({ general: message });
       Alert.alert('Error', message);
     } finally {
@@ -273,6 +289,7 @@ export default function ProfileScreen({ user, onProfileUpdated, onLogout }: Prof
           ) : null}
 
           {errors.general ? <Text style={styles.generalError}>{errors.general}</Text> : null}
+          {successMessage ? <Text style={styles.successMessage}>{successMessage}</Text> : null}
 
           <Pressable onPress={handleSave} disabled={saving} style={[styles.saveButton, saving && styles.saveButtonDisabled]}>
             <Text style={styles.saveButtonText}>{saving ? 'Guardando...' : 'Guardar cambios'}</Text>
@@ -406,6 +423,18 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: '700',
     marginBottom: 12,
+  },
+  successMessage: {
+    backgroundColor: colors.successSoft,
+    color: '#0f8f68',
+    borderRadius: 10,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    textAlign: 'center',
+    fontWeight: '700',
+    marginBottom: 12,
+    borderWidth: 1,
+    borderColor: '#A5E4CF',
   },
   countrySelector: {
     flexDirection: 'row',
