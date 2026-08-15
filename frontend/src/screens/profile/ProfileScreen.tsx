@@ -202,6 +202,7 @@ export default function ProfileScreen({ user, onProfileUpdated, onLogout }: Prof
               }}
               style={[styles.input, errors.first_name && styles.inputError]}
               placeholder="Tu nombre"
+              placeholderTextColor={colors.textMuted}
               autoCapitalize="words"
             />
             {errors.first_name ? <Text style={styles.errorText}>{errors.first_name}</Text> : null}
@@ -217,6 +218,7 @@ export default function ProfileScreen({ user, onProfileUpdated, onLogout }: Prof
               }}
               style={[styles.input, errors.last_name && styles.inputError]}
               placeholder="Tus apellidos"
+              placeholderTextColor={colors.textMuted}
               autoCapitalize="words"
             />
             {errors.last_name ? <Text style={styles.errorText}>{errors.last_name}</Text> : null}
@@ -232,6 +234,7 @@ export default function ProfileScreen({ user, onProfileUpdated, onLogout }: Prof
               }}
               style={[styles.input, errors.username && styles.inputError]}
               placeholder="Nombre de usuario"
+              placeholderTextColor={colors.textMuted}
               autoCapitalize="none"
             />
             {errors.username ? <Text style={styles.errorText}>{errors.username}</Text> : null}
@@ -243,7 +246,7 @@ export default function ProfileScreen({ user, onProfileUpdated, onLogout }: Prof
               onPress={() => setCountryModalVisible(true)}
               style={[styles.input, styles.countrySelector, errors.country_of_residence && styles.inputError]}
             >
-              <Text style={styles.countryText}>{country || 'Selecciona un país'}</Text>
+              <Text style={[styles.countryText, !country && { color: colors.textMuted }]}>{country || 'Selecciona un país'}</Text>
               <Text style={styles.countryChevron}>▾</Text>
             </Pressable>
             {errors.country_of_residence ? <Text style={styles.errorText}>{errors.country_of_residence}</Text> : null}
@@ -266,6 +269,7 @@ export default function ProfileScreen({ user, onProfileUpdated, onLogout }: Prof
                   }}
                   style={[styles.input, errors.password && styles.inputError]}
                   placeholder="Mínimo 6 caracteres"
+                  placeholderTextColor={colors.textMuted}
                   secureTextEntry
                 />
                 {errors.password ? <Text style={styles.errorText}>{errors.password}</Text> : null}
@@ -281,6 +285,7 @@ export default function ProfileScreen({ user, onProfileUpdated, onLogout }: Prof
                   }}
                   style={[styles.input, errors.confirm_password && styles.inputError]}
                   placeholder="Repite la nueva contraseña"
+                  placeholderTextColor={colors.textMuted}
                   secureTextEntry
                 />
                 {errors.confirm_password ? <Text style={styles.errorText}>{errors.confirm_password}</Text> : null}
@@ -315,6 +320,7 @@ export default function ProfileScreen({ user, onProfileUpdated, onLogout }: Prof
               value={searchTerm}
               onChangeText={setSearchTerm}
               placeholder="Buscar país"
+              placeholderTextColor={colors.textMuted}
               style={styles.modalInput}
             />
 
