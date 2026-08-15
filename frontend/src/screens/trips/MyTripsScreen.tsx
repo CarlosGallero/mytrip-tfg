@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useState } from 'react';
 import {
   FlatList,
   Pressable,
@@ -22,33 +22,19 @@ type MyTripsScreenProps = {
   onLogout?: () => void;
 };
 
-const mockTrips: Trip[] = [
-  {
-    id: '1',
-    title: 'Roma en primavera',
-    destination: 'Italia',
-    dates: '12 May - 20 May',
-  },
-  {
-    id: '2',
-    title: 'Weekend en París',
-    destination: 'Francia',
-    dates: '02 Jun - 06 Jun',
-  },
-];
-
 export default function MyTripsScreen({ onLogout }: MyTripsScreenProps) {
-  const [trips] = useState<Trip[]>(mockTrips);
+  const [trips] = useState<Trip[]>([]);
 
-  const hasTrips = useMemo(() => trips.length > 0, [trips]);
+  const hasTrips = trips.length > 0;
+  const primaryActionLabel = hasTrips
+    ? 'Empezar nuevo viaje'
+    : 'Empezar mi primer viaje';
 
   if (!hasTrips) {
     return (
       <SafeAreaView style={styles.safeArea}>
         <View style={styles.emptyContainer}>
-          <View style={styles.emptyIconWrap}>
-            <Text style={styles.emptyIcon}>✈️</Text>
-          </View>
+          
 
           <Text style={styles.emptyTitle}>Todavía no tienes viajes</Text>
           <Text style={styles.emptySubtitle}>
@@ -56,12 +42,9 @@ export default function MyTripsScreen({ onLogout }: MyTripsScreenProps) {
           </Text>
 
           <Pressable style={styles.primaryButton}>
-            <Text style={styles.primaryButtonText}>Empezar mi primer viaje</Text>
+            <Text style={styles.primaryButtonText}>{primaryActionLabel}</Text>
           </Pressable>
 
-          <Pressable onPress={onLogout} style={styles.logoutLink}>
-            <Text style={styles.logoutLinkText}>Cerrar sesión</Text>
-          </Pressable>
         </View>
       </SafeAreaView>
     );
@@ -75,8 +58,8 @@ export default function MyTripsScreen({ onLogout }: MyTripsScreenProps) {
           <Text style={styles.headerTitle}>Viajes guardados</Text>
         </View>
 
-        <Pressable onPress={onLogout} style={styles.logoutButton}>
-          <Text style={styles.logoutButtonText}>Salir</Text>
+        <Pressable style={styles.newTripButton}>
+          <Text style={styles.newTripButtonText}>{primaryActionLabel}</Text>
         </Pressable>
       </View>
 
@@ -161,21 +144,6 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '800',
   },
-  logoutLink: {
-    marginTop: 18,
-    paddingVertical: 10,
-    backgroundColor: '#fdecef',
-    borderRadius: 12,
-    paddingHorizontal: 18,
-    borderWidth: 1,
-    borderColor: colors.danger,
-  },
-  logoutLinkText: {
-    color: colors.danger,
-    fontWeight: '800',
-    fontSize: 14,
-    textAlign: 'center',
-  },
   header: {
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -183,6 +151,17 @@ const styles = StyleSheet.create({
     paddingHorizontal: theme.spacing.xl,
     paddingTop: theme.spacing.xl,
     paddingBottom: theme.spacing.lg,
+  },
+  newTripButton: {
+    backgroundColor: colors.primary,
+    borderRadius: 12,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+  },
+  newTripButtonText: {
+    color: colors.white,
+    fontWeight: '800',
+    fontSize: 12,
   },
   headerEyebrow: {
     color: colors.textMuted,
@@ -194,18 +173,6 @@ const styles = StyleSheet.create({
   headerTitle: {
     color: colors.text,
     fontSize: 30,
-    fontWeight: '800',
-  },
-  logoutButton: {
-    backgroundColor: '#fdecef',
-    borderWidth: 1,
-    borderColor: colors.danger,
-    borderRadius: 12,
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-  },
-  logoutButtonText: {
-    color: colors.danger,
     fontWeight: '800',
   },
   listContent: {
