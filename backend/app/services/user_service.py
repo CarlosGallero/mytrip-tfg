@@ -26,7 +26,7 @@ class UserService:
             "hashed_password": hash_password(user.password),
             "country_of_residence": user.country_of_residence,
             "default_currency": default_currency,
-            "created_at": datetime.now(timezone.utc),  # Añadido timestamp
+            "created_at": datetime.now(timezone.utc),
             "is_active": True
         }
 

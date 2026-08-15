@@ -201,7 +201,6 @@ export default function AuthScreen({ onLoginSuccess }: AuthScreenProps) {
         newErrors.country_of_residence = 'Selecciona un país de origen.';
       }
 
-      // Si hay errores de validación previa en el cliente, no llamamos a la API
       if (Object.keys(newErrors).length > 0) {
         setErrors(newErrors);
         setLoading(false);
