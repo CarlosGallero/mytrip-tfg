@@ -10,13 +10,18 @@ import MyTripsScreen from './src/screens/trips/MyTripsScreen';
 import { colors } from './src/theme/colors';
 import { theme } from './src/theme/theme';
 
+import { DestinationTravelInfo } from './src/types';
+
 type ActiveTab = 'profile' | 'trips';
 
 function AuthenticatedApp({ onLogout }: { onLogout: () => void }) {
   const [activeTab, setActiveTab] = useState<ActiveTab>('profile');
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [showCreateTripWizard, setShowCreateTripWizard] = useState(false);
-  const [tripDraft, setTripDraft] = useState<{ destination: string }>({ destination: '' });
+  const [tripDraft, setTripDraft] = useState<{
+    destination: string;
+    countryInfo?: DestinationTravelInfo | null;
+  }>({ destination: '' });
 
   useEffect(() => {
     const loadUser = async () => {
