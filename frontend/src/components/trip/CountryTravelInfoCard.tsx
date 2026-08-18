@@ -15,13 +15,27 @@ import { theme } from '../../theme/theme';
 
 interface CountryTravelInfoCardProps {
   info: DestinationTravelInfo;
+  hasPassport?: boolean | null;
+  onPassportChange?: (hasPassport: boolean) => void;
 }
 
-export default function CountryTravelInfoCard({ info }: CountryTravelInfoCardProps) {
-  const [hasPassport, setHasPassport] = useState<boolean | null>(null);
+export default function CountryTravelInfoCard({
+  info,
+  hasPassport: externalHasPassport,
+  onPassportChange,
+}: CountryTravelInfoCardProps) {
+  const [internalHasPassport, setInternalHasPassport] = useState<boolean | null>(null);
   const [showPassportInfo, setShowPassportInfo] = useState(false);
   const [showVaccineInfo, setShowVaccineInfo] = useState(false);
   const [showSecurityInfo, setShowSecurityInfo] = useState(false);
+
+  const hasPassport =
+    externalHasPassport !== undefined ? externalHasPassport : internalHasPassport;
+
+  const handleSelectPassport = (val: boolean) => {
+    setInternalHasPassport(val);
+    onPassportChange?.(val);
+  };
 
   const destinationFlagUrl = getCountryFlagUrl(
     info.country_name,
@@ -158,19 +172,31 @@ export default function CountryTravelInfoCard({ info }: CountryTravelInfoCardPro
             </View>
           )}
 
-          {/* Pregunta interactiva si se requiere pasaporte */}
+          {/* Pregunta interactiva obligatoria si se requiere pasaporte */}
           {info.passport_required && (
-            <View style={styles.passportQuestionSection}>
+            <View
+              style={[
+                styles.passportQuestionSection,
+                hasPassport === null && styles.passportQuestionPending,
+              ]}
+            >
               <View style={styles.questionHeader}>
-                <Text style={styles.questionTitle}>¿Posees pasaporte actualmente?</Text>
+                <View style={styles.questionTitleRow}>
+                  <Text style={styles.questionTitle}>¿Posees pasaporte actualmente?</Text>
+                  {hasPassport === null && (
+                    <View style={styles.requiredPill}>
+                      <Text style={styles.requiredPillText}>Respuesta requerida</Text>
+                    </View>
+                  )}
+                </View>
                 <Text style={styles.questionSubtitle}>
-                  Para viajar a {info.country_name} es necesario pasaporte en vigor.
+                  Para continuar debes indicar si tienes pasaporte en vigor para viajar a {info.country_name}.
                 </Text>
               </View>
 
               <View style={styles.choiceRow}>
                 <Pressable
-                  onPress={() => setHasPassport(true)}
+                  onPress={() => handleSelectPassport(true)}
                   style={[
                     styles.choiceButton,
                     hasPassport === true && styles.choiceButtonActiveSuccess,
@@ -187,7 +213,7 @@ export default function CountryTravelInfoCard({ info }: CountryTravelInfoCardPro
                 </Pressable>
 
                 <Pressable
-                  onPress={() => setHasPassport(false)}
+                  onPress={() => handleSelectPassport(false)}
                   style={[
                     styles.choiceButton,
                     hasPassport === false && styles.choiceButtonActiveWarning,
@@ -624,14 +650,37 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: colors.border,
   },
+  passportQuestionPending: {
+    borderColor: '#D97706',
+    borderWidth: 1.5,
+    backgroundColor: '#FFFDF9',
+  },
   questionHeader: {
     marginBottom: 10,
+  },
+  questionTitleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    flexWrap: 'wrap',
+    gap: 6,
+    marginBottom: 2,
   },
   questionTitle: {
     fontSize: 14,
     fontWeight: '800',
     color: colors.text,
-    marginBottom: 2,
+  },
+  requiredPill: {
+    backgroundColor: '#FFF4E5',
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: 6,
+  },
+  requiredPillText: {
+    color: '#D97706',
+    fontSize: 10,
+    fontWeight: '800',
   },
   questionSubtitle: {
     fontSize: 12,

@@ -17,7 +17,11 @@ import { theme } from '../../theme/theme';
 
 type CreateTripWizardScreenProps = {
   onCancel?: () => void;
-  onNext?: (formData: { destination: string; countryInfo?: DestinationTravelInfo | null }) => void;
+  onNext?: (formData: {
+    destination: string;
+    countryInfo?: DestinationTravelInfo | null;
+    hasPassport?: boolean | null;
+  }) => void;
 };
 
 export default function CreateTripWizardScreen({
@@ -28,16 +32,32 @@ export default function CreateTripWizardScreen({
   const [currentStep, setCurrentStep] = useState(1);
   const [destination, setDestination] = useState('');
   const [countryInfo, setCountryInfo] = useState<DestinationTravelInfo | null>(null);
+  const [hasPassport, setHasPassport] = useState<boolean | null>(null);
   const [isLoadingCountryInfo, setIsLoadingCountryInfo] = useState(false);
   const [loadingError, setLoadingError] = useState<string | null>(null);
   const [lastFetchedDestination, setLastFetchedDestination] = useState('');
 
   const progress = useMemo(() => (currentStep / totalSteps) * 100, [currentStep]);
-  const canContinue = destination.trim().length > 0;
+
+  // Validación para poder avanzar de paso
+  const canContinue = useMemo(() => {
+    if (currentStep === 1) {
+      return destination.trim().length > 0;
+    }
+    if (currentStep === 2) {
+      // Si el país exige pasaporte, es obligatorio indicar si se tiene o no
+      if (countryInfo?.passport_required) {
+        return hasPassport !== null;
+      }
+      return true;
+    }
+    return true;
+  }, [currentStep, destination, countryInfo, hasPassport]);
 
   const loadTravelData = async (targetDestination: string) => {
     setIsLoadingCountryInfo(true);
     setLoadingError(null);
+    setHasPassport(null);
     try {
       const data = await fetchDestinationTravelInfo(targetDestination);
       setCountryInfo(data);
@@ -72,11 +92,11 @@ export default function CreateTripWizardScreen({
 
     if (currentStep < totalSteps) {
       setCurrentStep((step) => step + 1);
-      onNext?.({ destination: cleanDest, countryInfo });
+      onNext?.({ destination: cleanDest, countryInfo, hasPassport });
       return;
     }
 
-    onNext?.({ destination: cleanDest, countryInfo });
+    onNext?.({ destination: cleanDest, countryInfo, hasPassport });
   };
 
   const handleBack = () => {
@@ -100,7 +120,7 @@ export default function CreateTripWizardScreen({
             <Text style={styles.loadingTitle}>Obteniendo datos del país...</Text>
             <Text style={styles.loadingSubtitle}>
               Consultando requisitos de viaje, visados, vacunas y seguridad para{' '}
-              <Text style={styles.highlightText}>"{destination.trim()}"</Text> con Gemini IA
+              <Text style={styles.highlightText}>"{destination.trim()}"</Text>
             </Text>
             <View style={styles.loadingBadgeContainer}>
               <Text style={styles.loadingBadge}>✨ Moneda y Bandera</Text>
@@ -164,12 +184,14 @@ export default function CreateTripWizardScreen({
               setDestination(text);
               if (text !== lastFetchedDestination) {
                 setCountryInfo(null);
+                setHasPassport(null);
               }
             }}
             onSelectCity={(city) => {
               setDestination(city);
               if (city !== lastFetchedDestination) {
                 setCountryInfo(null);
+                setHasPassport(null);
               }
             }}
             placeholder="Escribe la ciudad de destino..."
@@ -183,12 +205,13 @@ export default function CreateTripWizardScreen({
       return (
         <View style={styles.stepContent}>
           <Text style={styles.title}>Información del Destino</Text>
-          <Text style={styles.subtitle}>
-            Requisitos clave y datos de seguridad verificados para tu viaje.
-          </Text>
 
           {countryInfo ? (
-            <CountryTravelInfoCard info={countryInfo} />
+            <CountryTravelInfoCard
+              info={countryInfo}
+              hasPassport={hasPassport}
+              onPassportChange={setHasPassport}
+            />
           ) : (
             <View style={styles.emptyContainer}>
               <Text style={styles.emptyText}>No hay información disponible para este destino.</Text>
@@ -205,6 +228,19 @@ export default function CreateTripWizardScreen({
         <Text style={styles.subtitle}>Configuración del viaje hacia {destination}.</Text>
       </View>
     );
+  };
+
+  const getPrimaryButtonText = () => {
+    if (currentStep === 1) {
+      return 'Consultar y Continuar';
+    }
+    if (currentStep === 2) {
+      if (countryInfo?.passport_required && hasPassport === null) {
+        return 'Indica si tienes pasaporte';
+      }
+      return 'Continuar';
+    }
+    return 'Continuar';
   };
 
   return (
@@ -246,9 +282,7 @@ export default function CreateTripWizardScreen({
                 (!canContinue || isLoadingCountryInfo) && styles.primaryButtonDisabled,
               ]}
             >
-              <Text style={styles.primaryButtonText}>
-                {currentStep === 1 ? 'Consultar y Continuar' : 'Continuar'}
-              </Text>
+              <Text style={styles.primaryButtonText}>{getPrimaryButtonText()}</Text>
             </Pressable>
           </View>
         )}
