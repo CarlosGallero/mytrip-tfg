@@ -34,6 +34,17 @@ async def create_indexes():
     try:
         # Índice único en el campo username
         await db_instance.db["users"].create_index("username", unique=True)
+        
+        # Índices para la caché de información de países y destinos
+        await db_instance.db["country_travel_info"].create_index(
+            [("origin_country", 1), ("destination_country", 1)]
+        )
+        await db_instance.db["country_travel_info"].create_index(
+            [("origin_country", 1), ("destination_city", 1)]
+        )
+        await db_instance.db["country_travel_info"].create_index(
+            [("origin_country", 1), ("search_query", 1)]
+        )
         print("Índices de base de datos creados correctamente.")
     except Exception as e:
         print(f"Error al crear índices: {e}")
