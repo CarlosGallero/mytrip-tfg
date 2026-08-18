@@ -74,9 +74,7 @@ export default function CountryTravelInfoCard({
             />
           </View>
           <View style={styles.heroBadgeGroup}>
-            <View style={styles.heroAiPill}>
-              <Text style={styles.heroAiPillText}>✨ Verificado con IA</Text>
-            </View>
+            
             <View style={styles.heroCountryPill}>
               <Text style={styles.heroCountryPillText}>{info.country_name}</Text>
             </View>
