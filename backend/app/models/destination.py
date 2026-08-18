@@ -29,6 +29,26 @@ class DestinationInfoResponse(BaseModel):
     has_armed_conflict: bool = Field(..., description="Si existe guerra o conflicto armado activo")
     conflict_details: str = Field(..., description="Información de seguridad o situación bélica")
     origin_country: str = Field(..., description="País de origen del usuario registrado")
+    passport_application_url: Optional[str] = Field(
+        default=None,
+        description="Enlace web oficial gubernamental para solicitar o renovar el pasaporte en el país de origen"
+    )
+    passport_authority_name: Optional[str] = Field(
+        default=None,
+        description="Nombre del organismo oficial emisor del pasaporte en el país de origen"
+    )
+    passport_instructions: Optional[str] = Field(
+        default=None,
+        description="Instrucciones breves oficiales para tramitar el pasaporte"
+    )
+
+class PassportLinkInDB(BaseModel):
+    country: str = Field(..., description="Nombre del país de origen")
+    passport_application_url: str = Field(..., description="URL oficial del portal de tramitación/cita previa")
+    authority_name: str = Field(..., description="Organismo público oficial")
+    instructions: Optional[str] = Field(default=None, description="Instrucciones del trámite")
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+    updated_at: datetime = Field(default_factory=datetime.utcnow)
 
 class CountryTravelInfoInDB(BaseModel):
     origin_country: str

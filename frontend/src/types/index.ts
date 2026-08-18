@@ -10,4 +10,7 @@ export interface DestinationTravelInfo {
   has_armed_conflict: boolean;
   conflict_details: string;
   origin_country: string;
+  passport_application_url?: string | null;
+  passport_authority_name?: string | null;
+  passport_instructions?: string | null;
 }

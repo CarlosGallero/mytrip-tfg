@@ -1,5 +1,12 @@
-import React from 'react';
-import { ScrollView, StyleSheet, Text, View } from 'react-native';
+import React, { useState } from 'react';
+import {
+  Linking,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  View,
+} from 'react-native';
 import { DestinationTravelInfo } from '../../types';
 import { colors } from '../../theme/colors';
 import { theme } from '../../theme/theme';
@@ -9,6 +16,20 @@ interface CountryTravelInfoCardProps {
 }
 
 export default function CountryTravelInfoCard({ info }: CountryTravelInfoCardProps) {
+  const [hasPassport, setHasPassport] = useState<boolean | null>(null);
+
+  const handleOpenPassportLink = () => {
+    const targetUrl =
+      info.passport_application_url ||
+      `https://www.google.com/search?q=${encodeURIComponent(
+        `solicitar pasaporte cita previa ${info.origin_country}`
+      )}`;
+
+    Linking.openURL(targetUrl).catch((err) =>
+      console.error('No se pudo abrir el enlace:', err)
+    );
+  };
+
   return (
     <ScrollView
       style={styles.container}
@@ -30,7 +51,8 @@ export default function CountryTravelInfoCard({ info }: CountryTravelInfoCardPro
       {/* Origin Context Notice */}
       <View style={styles.contextNotice}>
         <Text style={styles.contextNoticeText}>
-          Requisitos personalizados para residentes de <Text style={styles.boldText}>{info.origin_country || 'tu país'}</Text>
+          Requisitos personalizados para residentes de{' '}
+          <Text style={styles.boldText}>{info.origin_country || 'tu país'}</Text>
         </Text>
       </View>
 
@@ -81,7 +103,95 @@ export default function CountryTravelInfoCard({ info }: CountryTravelInfoCardPro
               </View>
             </View>
           </View>
+
           <Text style={styles.cardDescription}>{info.passport_details}</Text>
+
+          {/* Pregunta interactiva si se requiere pasaporte */}
+          {info.passport_required && (
+            <View style={styles.passportQuestionSection}>
+              <View style={styles.questionHeader}>
+                <Text style={styles.questionTitle}>¿Posees pasaporte actualmente?</Text>
+                <Text style={styles.questionSubtitle}>
+                  Indica si dispones de pasaporte en vigor para tu viaje a {info.country_name}.
+                </Text>
+              </View>
+
+              <View style={styles.choiceRow}>
+                <Pressable
+                  onPress={() => setHasPassport(true)}
+                  style={[
+                    styles.choiceButton,
+                    hasPassport === true && styles.choiceButtonActiveSuccess,
+                  ]}
+                >
+                  <Text
+                    style={[
+                      styles.choiceButtonText,
+                      hasPassport === true && styles.choiceButtonTextActive,
+                    ]}
+                  >
+                    ✓ Sí, tengo pasaporte
+                  </Text>
+                </Pressable>
+
+                <Pressable
+                  onPress={() => setHasPassport(false)}
+                  style={[
+                    styles.choiceButton,
+                    hasPassport === false && styles.choiceButtonActiveWarning,
+                  ]}
+                >
+                  <Text
+                    style={[
+                      styles.choiceButtonText,
+                      hasPassport === false && styles.choiceButtonTextActive,
+                    ]}
+                  >
+                    ✕ No tengo pasaporte
+                  </Text>
+                </Pressable>
+              </View>
+
+              {/* Si tiene pasaporte */}
+              {hasPassport === true && (
+                <View style={styles.passportReadyCard}>
+                  <Text style={styles.passportReadyText}>
+                    ✓ ¡Genial! Cuentas con la documentación requerida para este viaje.
+                  </Text>
+                </View>
+              )}
+
+              {/* Si NO tiene pasaporte -> Enlace oficial para solicitarlo */}
+              {hasPassport === false && (
+                <View style={styles.passportHelpCard}>
+                  <View style={styles.helpHeaderRow}>
+                    <Text style={styles.helpBadge}>🏛️ Trámite oficial en {info.origin_country}</Text>
+                  </View>
+
+                  {info.passport_authority_name && (
+                    <Text style={styles.helpAuthority}>
+                      {info.passport_authority_name}
+                    </Text>
+                  )}
+
+                  {info.passport_instructions && (
+                    <Text style={styles.helpInstructions}>
+                      {info.passport_instructions}
+                    </Text>
+                  )}
+
+                  <Pressable
+                    onPress={handleOpenPassportLink}
+                    style={styles.openLinkButton}
+                  >
+                    <Text style={styles.openLinkButtonText}>
+                      🔗 Solicitar cita previa / Tramitar pasaporte oficial ↗
+                    </Text>
+                  </Pressable>
+                </View>
+              )}
+            </View>
+          )}
         </View>
 
         {/* Vacunación */}
@@ -330,5 +440,119 @@ const styles = StyleSheet.create({
     borderTopWidth: 1,
     borderTopColor: colors.surfaceSoft,
     paddingTop: 10,
+  },
+  passportQuestionSection: {
+    marginTop: 16,
+    backgroundColor: colors.surfaceSoft,
+    borderRadius: 16,
+    padding: theme.spacing.md,
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  questionHeader: {
+    marginBottom: 12,
+  },
+  questionTitle: {
+    fontSize: 15,
+    fontWeight: '800',
+    color: colors.text,
+    marginBottom: 3,
+  },
+  questionSubtitle: {
+    fontSize: 13,
+    color: colors.textMuted,
+    lineHeight: 18,
+  },
+  choiceRow: {
+    flexDirection: 'row',
+    gap: 10,
+  },
+  choiceButton: {
+    flex: 1,
+    backgroundColor: colors.surface,
+    borderRadius: 12,
+    paddingVertical: 12,
+    paddingHorizontal: 8,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  choiceButtonActiveSuccess: {
+    backgroundColor: colors.primary,
+    borderColor: colors.primary,
+  },
+  choiceButtonActiveWarning: {
+    backgroundColor: '#D97706',
+    borderColor: '#D97706',
+  },
+  choiceButtonText: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: colors.text,
+  },
+  choiceButtonTextActive: {
+    color: colors.white,
+  },
+  passportReadyCard: {
+    marginTop: 12,
+    backgroundColor: colors.successSoft,
+    borderRadius: 12,
+    padding: 12,
+    borderLeftWidth: 4,
+    borderLeftColor: colors.success,
+  },
+  passportReadyText: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#08877B',
+    lineHeight: 18,
+  },
+  passportHelpCard: {
+    marginTop: 12,
+    backgroundColor: '#FFFDF7',
+    borderRadius: 14,
+    padding: 14,
+    borderWidth: 1,
+    borderColor: '#FDE68A',
+  },
+  helpHeaderRow: {
+    marginBottom: 6,
+  },
+  helpBadge: {
+    fontSize: 13,
+    fontWeight: '800',
+    color: '#92400E',
+  },
+  helpAuthority: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: colors.text,
+    marginBottom: 6,
+  },
+  helpInstructions: {
+    fontSize: 13,
+    color: colors.text,
+    lineHeight: 19,
+    marginBottom: 12,
+  },
+  openLinkButton: {
+    backgroundColor: colors.primary,
+    borderRadius: 12,
+    paddingVertical: 12,
+    paddingHorizontal: 14,
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: colors.primaryDark,
+    shadowOpacity: 0.15,
+    shadowOffset: { width: 0, height: 4 },
+    shadowRadius: 8,
+    elevation: 3,
+  },
+  openLinkButtonText: {
+    color: colors.white,
+    fontSize: 13,
+    fontWeight: '800',
+    textAlign: 'center',
   },
 });

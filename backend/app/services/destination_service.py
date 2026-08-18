@@ -3,7 +3,7 @@ import logging
 import re
 import unicodedata
 from datetime import datetime
-from typing import Optional, Any
+from typing import Optional, Any, Tuple
 from google import genai
 from google.genai import types
 from app.core.config import settings
@@ -15,7 +15,9 @@ AVAILABLE_MODELS = [
     "gemini-3.6-flash",
     "gemini-3.7-flash",
     "gemini-flash-latest",
-    "gemini-2.5-flash"
+    "gemini-3.5-flash",
+    "gemini-3.1-flash-lite",
+    "gemini-flash-lite-latest"
 ]
 
 def normalize_text(text: str) -> str:
@@ -38,6 +40,147 @@ class DestinationService:
         return text.strip()
 
     @classmethod
+    async def get_passport_link_for_country(
+        cls,
+        origin_country: str,
+        db: Optional[Any] = None
+    ) -> Tuple[Optional[str], Optional[str], Optional[str]]:
+        """
+        Obtiene el enlace oficial gubernamental, organismo e instrucciones para tramitar/renovar
+        el pasaporte en el país de origen.
+        1. Consulta primero la colección 'passport_links' en MongoDB.
+        2. Si no existe, consulta a Gemini y persiste el resultado en MongoDB para futuros usuarios.
+        """
+        clean_country = origin_country.strip()
+
+        # 1. Búsqueda en base de datos
+        if db is not None:
+            try:
+                cached_link = await db["passport_links"].find_one({
+                    "country": {"$regex": f"^{re.escape(clean_country)}$", "$options": "i"}
+                })
+                if cached_link and cached_link.get("passport_application_url"):
+                    logger.info(f"Caché hit en passport_links para el país de origen '{clean_country}'")
+                    return (
+                        cached_link.get("passport_application_url"),
+                        cached_link.get("authority_name"),
+                        cached_link.get("instructions")
+                    )
+            except Exception as e:
+                logger.warning(f"Error consultando passport_links en MongoDB: {e}")
+
+        # 2. Consulta a Gemini si no está en la BD
+        api_key = settings.GEMINI_API_KEY
+        if not api_key:
+            return cls._get_default_passport_link(clean_country)
+
+        client = genai.Client(api_key=api_key)
+
+        prompt = f"""
+Indica el enlace web oficial gubernamental para solicitar, renovar o pedir cita para el pasaporte para los ciudadanos o residentes de: "{clean_country}".
+
+Responde ÚNICAMENTE con un objeto JSON válido con la siguiente estructura exacta:
+{{
+  "country": "{clean_country}",
+  "passport_application_url": "URL oficial del portal gubernamental o sistema de cita previa para tramitar el pasaporte (ej. https://...)",
+  "authority_name": "Nombre oficial de la autoridad o cuerpo gubernamental emisor del pasaporte",
+  "instructions": "Breve explicación en español de los requisitos clave y cómo solicitar la cita previa o tramitarlo"
+}}
+"""
+
+        for model_name in AVAILABLE_MODELS:
+            try:
+                response = client.models.generate_content(
+                    model=model_name,
+                    contents=prompt,
+                    config=types.GenerateContentConfig(
+                        response_mime_type="application/json",
+                        temperature=0.1
+                    )
+                )
+
+                if response and response.text:
+                    clean_text = cls._clean_json_text(response.text)
+                    data = json.loads(clean_text)
+
+                    url = str(data.get("passport_application_url", "")).strip()
+                    auth_name = str(data.get("authority_name", "Organismo oficial emisor")).strip()
+                    instructions = str(data.get("instructions", "Consulta la web oficial para solicitar cita previa y presentar tu documentación.")).strip()
+
+                    if url and not url.startswith("http"):
+                        url = f"https://{url}"
+
+                    # Guardar en MongoDB para futuros usuarios del mismo país de origen
+                    if db is not None and url:
+                        try:
+                            now = datetime.utcnow()
+                            await db["passport_links"].update_one(
+                                {"country": {"$regex": f"^{re.escape(clean_country)}$", "$options": "i"}},
+                                {
+                                    "$set": {
+                                        "country": clean_country,
+                                        "passport_application_url": url,
+                                        "authority_name": auth_name,
+                                        "instructions": instructions,
+                                        "updated_at": now
+                                    },
+                                    "$setOnInsert": {"created_at": now}
+                                },
+                                upsert=True
+                            )
+                            logger.info(f"Guardado enlace de pasaporte en MongoDB para '{clean_country}'")
+                        except Exception as save_err:
+                            logger.warning(f"Error guardando enlace de pasaporte en MongoDB: {save_err}")
+
+                    return (url or None, auth_name, instructions)
+            except Exception as e:
+                logger.warning(f"Error con modelo {model_name} al obtener enlace de pasaporte: {e}")
+                continue
+
+        return cls._get_default_passport_link(clean_country)
+
+    @staticmethod
+    def _get_default_passport_link(country: str) -> Tuple[Optional[str], Optional[str], Optional[str]]:
+        """Enlaces de respaldo conocidos para países comunes."""
+        c_low = country.lower()
+        if "españa" in c_low or "spain" in c_low:
+            return (
+                "https://www.citapreviadnie.es/",
+                "Dirección General de la Policía - Ministerio del Interior (España)",
+                "Solicita cita previa en la web oficial o llamando al 060 para acudir a tu comisaría más cercana con DNI y fotografía carné."
+            )
+        elif "estados unidos" in c_low or "united states" in c_low or "usa" in c_low:
+            return (
+                "https://travel.state.gov/content/travel/en/passports.html",
+                "U.S. Department of State - Bureau of Consular Affairs",
+                "Complete the passport application form online (DS-11 or DS-82) and schedule an appointment at an official passport agency or post office."
+            )
+        elif "mexico" in c_low or "méxico" in c_low:
+            return (
+                "https://citas.sre.gob.mx/",
+                "Secretaría de Relaciones Exteriores (SRE - México)",
+                "Agenda una cita en las oficinas de la SRE mediante su portal oficial o teléfono habilitado."
+            )
+        elif "argentina" in c_low:
+            return (
+                "https://www.argentina.gob.ar/interior/pasaporte",
+                "Registro Nacional de las Personas (RENAPER - Argentina)",
+                "Inicia el trámite de solicitud o renovación de pasaporte en los Centros de Documentación Renaper o Registros Civiles."
+            )
+        elif "colombia" in c_low:
+            return (
+                "https://www.cancilleria.gov.co/tramites_servicios/pasaportes",
+                "Ministerio de Relaciones Exteriores (Cancillería de Colombia)",
+                "Solicita cita en línea a través de la página web de la Cancillería para tramitar tu pasaporte ordinario o ejecutivo."
+            )
+
+        return (
+            None,
+            f"Organismo Consular u Oficial de {country}",
+            f"Consulta el portal oficial del Ministerio de Asuntos Exteriores o de Interior de {country} para gestionar tu pasaporte."
+        )
+
+    @classmethod
     async def get_travel_info(
         cls,
         destination: str,
@@ -50,6 +193,7 @@ class DestinationService:
         1. Consulta primero la base de datos (MongoDB) para evitar llamadas redundantes a Gemini.
         2. Si no existe en la base de datos, consulta la API de Gemini, calcula el gasto diario estimado
            en la moneda del usuario (comidas + actividades) y persiste el resultado en MongoDB.
+        3. Si se requiere pasaporte, obtiene el enlace oficial de tramitación para el país de origen.
         """
         clean_dest = destination.strip()
         norm_query = normalize_text(clean_dest)
@@ -63,18 +207,29 @@ class DestinationService:
                     logger.info(
                         f"Caché hit en MongoDB: recuperando datos para origen '{origin_country}' y destino '{clean_dest}'"
                     )
+                    passport_req = bool(cached_doc.get("passport_required", True))
+                    pass_url = None
+                    pass_auth = None
+                    pass_inst = None
+
+                    if passport_req:
+                        pass_url, pass_auth, pass_inst = await cls.get_passport_link_for_country(origin_country, db)
+
                     return DestinationInfoResponse(
                         destination_city=str(cached_doc.get("destination_city", clean_dest.split(",")[0].strip())),
                         country_name=str(cached_doc.get("destination_country", cached_doc.get("country_name", "Desconocido"))),
                         flag_emoji=str(cached_doc.get("flag_emoji", "🌍")),
                         currency=str(cached_doc.get("currency", "Moneda local")),
-                        passport_required=bool(cached_doc.get("passport_required", True)),
+                        passport_required=passport_req,
                         passport_details=str(cached_doc.get("passport_details", "")),
                         vaccination_required=bool(cached_doc.get("vaccination_required", False)),
                         vaccination_details=str(cached_doc.get("vaccination_details", "")),
                         has_armed_conflict=bool(cached_doc.get("has_armed_conflict", False)),
                         conflict_details=str(cached_doc.get("conflict_details", "")),
-                        origin_country=origin_country
+                        origin_country=origin_country,
+                        passport_application_url=pass_url,
+                        passport_authority_name=pass_auth,
+                        passport_instructions=pass_inst
                     )
             except Exception as e:
                 logger.warning(f"Error consultando la caché de MongoDB: {e}")
@@ -181,6 +336,12 @@ Determina con precisión el país al que pertenece dicho destino y responde ÚNI
                         except Exception as save_err:
                             logger.warning(f"Error al guardar información en base de datos: {save_err}")
 
+                    pass_url = None
+                    pass_auth = None
+                    pass_inst = None
+                    if passport_req:
+                        pass_url, pass_auth, pass_inst = await cls.get_passport_link_for_country(origin_country, db)
+
                     return DestinationInfoResponse(
                         destination_city=dest_city,
                         country_name=dest_country,
@@ -192,7 +353,10 @@ Determina con precisión el país al que pertenece dicho destino y responde ÚNI
                         vaccination_details=vaccination_det,
                         has_armed_conflict=has_conflict,
                         conflict_details=conflict_det,
-                        origin_country=origin_country
+                        origin_country=origin_country,
+                        passport_application_url=pass_url,
+                        passport_authority_name=pass_auth,
+                        passport_instructions=pass_inst
                     )
             except Exception as e:
                 logger.warning(f"Error con modelo {model_name}: {e}")
@@ -276,7 +440,6 @@ Determina con precisión el país al que pertenece dicho destino y responde ÚNI
             "updated_at": now
         }
 
-        # Actualizar si ya existía para ese origen y ciudad/país, o insertar uno nuevo
         await db["country_travel_info"].update_one(
             {
                 "origin_country": {"$regex": f"^{re.escape(origin_country)}$", "$options": "i"},
@@ -298,13 +461,18 @@ Determina con precisión el país al que pertenece dicho destino y responde ÚNI
         country = parts[-1] if len(parts) > 1 else city
 
         is_same_country = (origin_country.lower() in country.lower()) or (country.lower() in origin_country.lower())
+        passport_req = not is_same_country
+
+        pass_url, pass_auth, pass_inst = (None, None, None)
+        if passport_req:
+            pass_url, pass_auth, pass_inst = DestinationService._get_default_passport_link(origin_country)
 
         return DestinationInfoResponse(
             destination_city=city,
             country_name=country,
             flag_emoji="🌍",
             currency="Moneda local",
-            passport_required=not is_same_country,
+            passport_required=passport_req,
             passport_details=f"Viaje desde {origin_country} hacia {country}. " + (
                 "Al ser viaje nacional no necesitas pasaporte." if is_same_country else "Consulta si requieres pasaporte o visado según convenios internacionales."
             ),
@@ -312,5 +480,8 @@ Determina con precisión el país al que pertenece dicho destino y responde ÚNI
             vaccination_details="Se recomienda consultar los requisitos sanitarios actualizados para el destino.",
             has_armed_conflict=False,
             conflict_details="Sin registros de conflicto crítico en este momento.",
-            origin_country=origin_country
+            origin_country=origin_country,
+            passport_application_url=pass_url,
+            passport_authority_name=pass_auth,
+            passport_instructions=pass_inst
         )
