@@ -17,6 +17,9 @@ interface CountryTravelInfoCardProps {
 
 export default function CountryTravelInfoCard({ info }: CountryTravelInfoCardProps) {
   const [hasPassport, setHasPassport] = useState<boolean | null>(null);
+  const [showPassportInfo, setShowPassportInfo] = useState(false);
+  const [showVaccineInfo, setShowVaccineInfo] = useState(false);
+  const [showSecurityInfo, setShowSecurityInfo] = useState(false);
 
   const handleOpenPassportLink = () => {
     const targetUrl =
@@ -36,29 +39,35 @@ export default function CountryTravelInfoCard({ info }: CountryTravelInfoCardPro
       contentContainerStyle={styles.contentContainer}
       showsVerticalScrollIndicator={false}
     >
-      {/* Header Banner */}
-      <View style={styles.headerCard}>
-        <Text style={styles.flagEmoji}>{info.flag_emoji || '🌍'}</Text>
-        <View style={styles.headerInfo}>
-          <Text style={styles.countryName}>{info.country_name}</Text>
-          <Text style={styles.destinationCity}>Destino: {info.destination_city}</Text>
-          <View style={styles.aiBadge}>
-            <Text style={styles.aiBadgeText}>✨ Información de viaje con IA</Text>
+      {/* Hero Destination Banner - Resalta sobre toda la pantalla */}
+      <View style={styles.heroBanner}>
+        <View style={styles.heroTopRow}>
+          <View style={styles.flagBackdrop}>
+            <Text style={styles.heroFlagEmoji}>{info.flag_emoji || '🌍'}</Text>
+          </View>
+          <View style={styles.heroBadgeGroup}>
+            <View style={styles.heroAiPill}>
+              <Text style={styles.heroAiPillText}>✨ Verificado con IA</Text>
+            </View>
+            <View style={styles.heroCountryPill}>
+              <Text style={styles.heroCountryPillText}>{info.country_name}</Text>
+            </View>
+          </View>
+        </View>
+
+        <Text style={styles.heroDestinationCity}>{info.destination_city}</Text>
+
+        <View style={styles.heroContextRow}>
+          <Text style={styles.heroContextLabel}>Viajando desde</Text>
+          <View style={styles.heroOriginBadge}>
+            <Text style={styles.heroOriginText}>🏠 {info.origin_country || 'Origen'}</Text>
           </View>
         </View>
       </View>
 
-      {/* Origin Context Notice */}
-      <View style={styles.contextNotice}>
-        <Text style={styles.contextNoticeText}>
-          Requisitos personalizados para residentes de{' '}
-          <Text style={styles.boldText}>{info.origin_country || 'tu país'}</Text>
-        </Text>
-      </View>
-
       {/* Grid of Info Cards */}
       <View style={styles.cardsGrid}>
-        {/* Moneda */}
+        {/* 1. Moneda */}
         <View style={styles.infoCard}>
           <View style={styles.cardHeaderRow}>
             <View style={[styles.iconCircle, { backgroundColor: '#EBF3FF' }]}>
@@ -71,7 +80,7 @@ export default function CountryTravelInfoCard({ info }: CountryTravelInfoCardPro
           </View>
         </View>
 
-        {/* Pasaporte y Documentación */}
+        {/* 2. Pasaporte y Documentación */}
         <View style={styles.infoCard}>
           <View style={styles.cardHeaderRow}>
             <View
@@ -83,7 +92,7 @@ export default function CountryTravelInfoCard({ info }: CountryTravelInfoCardPro
               <Text style={styles.iconText}>🛂</Text>
             </View>
             <View style={styles.cardTitleContainer}>
-              <Text style={styles.cardLabel}>Pasaporte y Visado</Text>
+              <Text style={styles.cardLabel}>Pasaporte</Text>
               <View
                 style={[
                   styles.statusTag,
@@ -98,13 +107,37 @@ export default function CountryTravelInfoCard({ info }: CountryTravelInfoCardPro
                       : styles.statusSuccessText,
                   ]}
                 >
-                  {info.passport_required ? 'Pasaporte Obligatorio' : 'No requiere Pasaporte'}
+                  {info.passport_required ? 'Obligatorio' : 'No necesario'}
                 </Text>
               </View>
             </View>
+
+            {/* Botón + info */}
+            <Pressable
+              onPress={() => setShowPassportInfo((prev) => !prev)}
+              style={({ pressed }) => [
+                styles.infoToggleBtn,
+                showPassportInfo && styles.infoToggleBtnActive,
+                pressed && styles.btnPressed,
+              ]}
+            >
+              <Text
+                style={[
+                  styles.infoToggleBtnText,
+                  showPassportInfo && styles.infoToggleBtnTextActive,
+                ]}
+              >
+                {showPassportInfo ? '- info' : '+ info'}
+              </Text>
+            </Pressable>
           </View>
 
-          <Text style={styles.cardDescription}>{info.passport_details}</Text>
+          {/* Información detallada al pulsar + info */}
+          {showPassportInfo && (
+            <View style={styles.expandedInfoContainer}>
+              <Text style={styles.expandedInfoText}>{info.passport_details}</Text>
+            </View>
+          )}
 
           {/* Pregunta interactiva si se requiere pasaporte */}
           {info.passport_required && (
@@ -112,7 +145,7 @@ export default function CountryTravelInfoCard({ info }: CountryTravelInfoCardPro
               <View style={styles.questionHeader}>
                 <Text style={styles.questionTitle}>¿Posees pasaporte actualmente?</Text>
                 <Text style={styles.questionSubtitle}>
-                  Indica si dispones de pasaporte en vigor para tu viaje a {info.country_name}.
+                  Para viajar a {info.country_name} es necesario pasaporte en vigor.
                 </Text>
               </View>
 
@@ -194,7 +227,7 @@ export default function CountryTravelInfoCard({ info }: CountryTravelInfoCardPro
           )}
         </View>
 
-        {/* Vacunación */}
+        {/* 3. Vacunación */}
         <View style={styles.infoCard}>
           <View style={styles.cardHeaderRow}>
             <View
@@ -206,7 +239,7 @@ export default function CountryTravelInfoCard({ info }: CountryTravelInfoCardPro
               <Text style={styles.iconText}>💉</Text>
             </View>
             <View style={styles.cardTitleContainer}>
-              <Text style={styles.cardLabel}>Requisitos de Vacunación</Text>
+              <Text style={styles.cardLabel}>Vacunación</Text>
               <View
                 style={[
                   styles.statusTag,
@@ -221,15 +254,40 @@ export default function CountryTravelInfoCard({ info }: CountryTravelInfoCardPro
                       : styles.statusSuccessText,
                   ]}
                 >
-                  {info.vaccination_required ? 'Vacunas Obligatorias' : 'Sin vacunas obligatorias'}
+                  {info.vaccination_required ? 'Obligatoria' : 'No necesaria'}
                 </Text>
               </View>
             </View>
+
+            {/* Botón + info */}
+            <Pressable
+              onPress={() => setShowVaccineInfo((prev) => !prev)}
+              style={({ pressed }) => [
+                styles.infoToggleBtn,
+                showVaccineInfo && styles.infoToggleBtnActive,
+                pressed && styles.btnPressed,
+              ]}
+            >
+              <Text
+                style={[
+                  styles.infoToggleBtnText,
+                  showVaccineInfo && styles.infoToggleBtnTextActive,
+                ]}
+              >
+                {showVaccineInfo ? '- info' : '+ info'}
+              </Text>
+            </Pressable>
           </View>
-          <Text style={styles.cardDescription}>{info.vaccination_details}</Text>
+
+          {/* Información detallada al pulsar + info */}
+          {showVaccineInfo && (
+            <View style={styles.expandedInfoContainer}>
+              <Text style={styles.expandedInfoText}>{info.vaccination_details}</Text>
+            </View>
+          )}
         </View>
 
-        {/* Situación Bélica / Guerras */}
+        {/* 4. Situación Bélica / Guerras */}
         <View
           style={[
             styles.infoCard,
@@ -248,7 +306,7 @@ export default function CountryTravelInfoCard({ info }: CountryTravelInfoCardPro
               </Text>
             </View>
             <View style={styles.cardTitleContainer}>
-              <Text style={styles.cardLabel}>Seguridad y Conflictos</Text>
+              <Text style={styles.cardLabel}>Seguridad y Guerra</Text>
               <View
                 style={[
                   styles.statusTag,
@@ -263,12 +321,37 @@ export default function CountryTravelInfoCard({ info }: CountryTravelInfoCardPro
                       : styles.statusSuccessText,
                   ]}
                 >
-                  {info.has_armed_conflict ? 'Conflicto Bélico Activo' : 'País Seguro y Estable'}
+                  {info.has_armed_conflict ? 'Conflicto Bélico Activo' : 'País Seguro'}
                 </Text>
               </View>
             </View>
+
+            {/* Botón + info */}
+            <Pressable
+              onPress={() => setShowSecurityInfo((prev) => !prev)}
+              style={({ pressed }) => [
+                styles.infoToggleBtn,
+                showSecurityInfo && styles.infoToggleBtnActive,
+                pressed && styles.btnPressed,
+              ]}
+            >
+              <Text
+                style={[
+                  styles.infoToggleBtnText,
+                  showSecurityInfo && styles.infoToggleBtnTextActive,
+                ]}
+              >
+                {showSecurityInfo ? '- info' : '+ info'}
+              </Text>
+            </Pressable>
           </View>
-          <Text style={styles.cardDescription}>{info.conflict_details}</Text>
+
+          {/* Información detallada al pulsar + info */}
+          {showSecurityInfo && (
+            <View style={styles.expandedInfoContainer}>
+              <Text style={styles.expandedInfoText}>{info.conflict_details}</Text>
+            </View>
+          )}
         </View>
       </View>
     </ScrollView>
@@ -282,84 +365,109 @@ const styles = StyleSheet.create({
   contentContainer: {
     paddingBottom: theme.spacing.lg,
   },
-  headerCard: {
+  /* Hero Banner - Resalta el destino con jerarquía visual */
+  heroBanner: {
+    backgroundColor: '#2F1DB2',
+    borderRadius: 24,
+    padding: theme.spacing.xl,
+    marginBottom: theme.spacing.lg,
+    shadowColor: '#2F1DB2',
+    shadowOpacity: 0.35,
+    shadowOffset: { width: 0, height: 8 },
+    shadowRadius: 18,
+    elevation: 8,
+  },
+  heroTopRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: colors.surface,
-    borderRadius: 20,
-    padding: theme.spacing.lg,
-    borderWidth: 1,
-    borderColor: colors.border,
+    justifyContent: 'space-between',
     marginBottom: theme.spacing.md,
-    shadowColor: colors.shadow,
-    shadowOpacity: 0.06,
-    shadowOffset: { width: 0, height: 4 },
-    shadowRadius: 10,
-    elevation: 3,
   },
-  flagEmoji: {
-    fontSize: 54,
-    marginRight: theme.spacing.md,
+  flagBackdrop: {
+    width: 64,
+    height: 64,
+    borderRadius: 32,
+    backgroundColor: 'rgba(255, 255, 255, 0.18)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 2,
+    borderColor: 'rgba(255, 255, 255, 0.3)',
   },
-  headerInfo: {
-    flex: 1,
+  heroFlagEmoji: {
+    fontSize: 40,
   },
-  countryName: {
-    fontSize: 24,
+  heroBadgeGroup: {
+    alignItems: 'flex-end',
+    gap: 6,
+  },
+  heroAiPill: {
+    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 12,
+  },
+  heroAiPillText: {
+    color: '#FFFFFF',
+    fontSize: 11,
     fontWeight: '800',
-    color: colors.text,
-    lineHeight: 28,
+    letterSpacing: 0.3,
   },
-  destinationCity: {
-    fontSize: 14,
-    color: colors.textMuted,
-    marginTop: 2,
+  heroCountryPill: {
+    backgroundColor: '#FFFFFF',
+    paddingHorizontal: 12,
+    paddingVertical: 5,
+    borderRadius: 14,
+  },
+  heroCountryPillText: {
+    color: '#2F1DB2',
+    fontSize: 13,
+    fontWeight: '800',
+  },
+  heroDestinationCity: {
+    fontSize: 32,
+    fontWeight: '900',
+    color: '#FFFFFF',
+    letterSpacing: -0.5,
+    lineHeight: 38,
+    marginBottom: 10,
+  },
+  heroContextRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    borderTopWidth: 1,
+    borderTopColor: 'rgba(255, 255, 255, 0.15)',
+    paddingTop: 10,
+  },
+  heroContextLabel: {
+    color: 'rgba(255, 255, 255, 0.75)',
+    fontSize: 12,
     fontWeight: '600',
   },
-  aiBadge: {
-    alignSelf: 'flex-start',
-    backgroundColor: colors.surfaceSoft,
+  heroOriginBadge: {
+    backgroundColor: 'rgba(255, 255, 255, 0.18)',
     paddingHorizontal: 8,
-    paddingVertical: 4,
+    paddingVertical: 3,
     borderRadius: 8,
-    marginTop: 6,
   },
-  aiBadgeText: {
-    fontSize: 11,
+  heroOriginText: {
+    color: '#FFFFFF',
+    fontSize: 12,
     fontWeight: '700',
-    color: colors.primary,
-  },
-  contextNotice: {
-    backgroundColor: colors.surfaceSoft,
-    paddingHorizontal: 14,
-    paddingVertical: 10,
-    borderRadius: 12,
-    marginBottom: theme.spacing.md,
-    borderLeftWidth: 3,
-    borderLeftColor: colors.primary,
-  },
-  contextNoticeText: {
-    fontSize: 13,
-    color: colors.textMuted,
-    lineHeight: 18,
-  },
-  boldText: {
-    fontWeight: '700',
-    color: colors.text,
   },
   cardsGrid: {
     gap: theme.spacing.md,
   },
   infoCard: {
     backgroundColor: colors.surface,
-    borderRadius: 18,
+    borderRadius: 20,
     padding: theme.spacing.lg,
     borderWidth: 1,
     borderColor: colors.border,
     shadowColor: colors.shadow,
-    shadowOpacity: 0.04,
-    shadowOffset: { width: 0, height: 3 },
-    shadowRadius: 8,
+    shadowOpacity: 0.05,
+    shadowOffset: { width: 0, height: 4 },
+    shadowRadius: 10,
     elevation: 2,
   },
   infoCardDanger: {
@@ -385,7 +493,7 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   cardLabel: {
-    fontSize: 13,
+    fontSize: 12,
     fontWeight: '700',
     color: colors.textMuted,
     textTransform: 'uppercase',
@@ -393,7 +501,7 @@ const styles = StyleSheet.create({
     marginBottom: 2,
   },
   cardMainValue: {
-    fontSize: 16,
+    fontSize: 15,
     fontWeight: '800',
     color: colors.text,
   },
@@ -432,17 +540,49 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: '800',
   },
-  cardDescription: {
-    marginTop: 12,
-    fontSize: 14,
-    color: colors.text,
-    lineHeight: 21,
-    borderTopWidth: 1,
-    borderTopColor: colors.surfaceSoft,
-    paddingTop: 10,
+  /* Botón + info */
+  infoToggleBtn: {
+    backgroundColor: colors.surfaceSoft,
+    borderWidth: 1,
+    borderColor: colors.border,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 12,
+    alignSelf: 'center',
+    marginLeft: 8,
   },
+  infoToggleBtnActive: {
+    backgroundColor: colors.primary,
+    borderColor: colors.primary,
+  },
+  infoToggleBtnText: {
+    fontSize: 12,
+    fontWeight: '800',
+    color: colors.primary,
+  },
+  infoToggleBtnTextActive: {
+    color: colors.white,
+  },
+  btnPressed: {
+    opacity: 0.8,
+  },
+  /* Contenedor expandido */
+  expandedInfoContainer: {
+    marginTop: 12,
+    backgroundColor: colors.surfaceSoft,
+    borderRadius: 12,
+    padding: 12,
+    borderLeftWidth: 3,
+    borderLeftColor: colors.primary,
+  },
+  expandedInfoText: {
+    fontSize: 13,
+    color: colors.text,
+    lineHeight: 20,
+  },
+  /* Pregunta interactiva de pasaporte */
   passportQuestionSection: {
-    marginTop: 16,
+    marginTop: 14,
     backgroundColor: colors.surfaceSoft,
     borderRadius: 16,
     padding: theme.spacing.md,
@@ -450,28 +590,28 @@ const styles = StyleSheet.create({
     borderColor: colors.border,
   },
   questionHeader: {
-    marginBottom: 12,
+    marginBottom: 10,
   },
   questionTitle: {
-    fontSize: 15,
+    fontSize: 14,
     fontWeight: '800',
     color: colors.text,
-    marginBottom: 3,
+    marginBottom: 2,
   },
   questionSubtitle: {
-    fontSize: 13,
+    fontSize: 12,
     color: colors.textMuted,
-    lineHeight: 18,
+    lineHeight: 16,
   },
   choiceRow: {
     flexDirection: 'row',
-    gap: 10,
+    gap: 8,
   },
   choiceButton: {
     flex: 1,
     backgroundColor: colors.surface,
     borderRadius: 12,
-    paddingVertical: 12,
+    paddingVertical: 10,
     paddingHorizontal: 8,
     alignItems: 'center',
     justifyContent: 'center',
@@ -487,7 +627,7 @@ const styles = StyleSheet.create({
     borderColor: '#D97706',
   },
   choiceButtonText: {
-    fontSize: 13,
+    fontSize: 12,
     fontWeight: '700',
     color: colors.text,
   },
@@ -495,63 +635,63 @@ const styles = StyleSheet.create({
     color: colors.white,
   },
   passportReadyCard: {
-    marginTop: 12,
+    marginTop: 10,
     backgroundColor: colors.successSoft,
-    borderRadius: 12,
-    padding: 12,
+    borderRadius: 10,
+    padding: 10,
     borderLeftWidth: 4,
     borderLeftColor: colors.success,
   },
   passportReadyText: {
-    fontSize: 13,
+    fontSize: 12,
     fontWeight: '700',
     color: '#08877B',
-    lineHeight: 18,
+    lineHeight: 16,
   },
   passportHelpCard: {
-    marginTop: 12,
+    marginTop: 10,
     backgroundColor: '#FFFDF7',
-    borderRadius: 14,
-    padding: 14,
+    borderRadius: 12,
+    padding: 12,
     borderWidth: 1,
     borderColor: '#FDE68A',
   },
   helpHeaderRow: {
-    marginBottom: 6,
+    marginBottom: 4,
   },
   helpBadge: {
-    fontSize: 13,
+    fontSize: 12,
     fontWeight: '800',
     color: '#92400E',
   },
   helpAuthority: {
-    fontSize: 14,
+    fontSize: 13,
     fontWeight: '700',
     color: colors.text,
-    marginBottom: 6,
+    marginBottom: 4,
   },
   helpInstructions: {
-    fontSize: 13,
+    fontSize: 12,
     color: colors.text,
-    lineHeight: 19,
-    marginBottom: 12,
+    lineHeight: 17,
+    marginBottom: 10,
   },
   openLinkButton: {
     backgroundColor: colors.primary,
-    borderRadius: 12,
-    paddingVertical: 12,
-    paddingHorizontal: 14,
+    borderRadius: 10,
+    paddingVertical: 10,
+    paddingHorizontal: 12,
     alignItems: 'center',
     justifyContent: 'center',
     shadowColor: colors.primaryDark,
     shadowOpacity: 0.15,
-    shadowOffset: { width: 0, height: 4 },
-    shadowRadius: 8,
-    elevation: 3,
+    shadowOffset: { width: 0, height: 3 },
+    shadowRadius: 6,
+    elevation: 2,
   },
   openLinkButtonText: {
     color: colors.white,
-    fontSize: 13,
+    fontSize: 12,
     fontWeight: '800',
     textAlign: 'center',
   },
