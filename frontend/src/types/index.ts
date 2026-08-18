@@ -2,6 +2,8 @@ export interface DestinationTravelInfo {
   destination_city: string;
   country_name: string;
   flag_emoji: string;
+  flag_image_url?: string | null;
+  country_code?: string | null;
   currency: string;
   passport_required: boolean;
   passport_details: string;

@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import {
+  Image,
   Linking,
   Pressable,
   ScrollView,
@@ -8,6 +9,7 @@ import {
   View,
 } from 'react-native';
 import { DestinationTravelInfo } from '../../types';
+import { getCountryFlagUrl } from '../../utils/flags';
 import { colors } from '../../theme/colors';
 import { theme } from '../../theme/theme';
 
@@ -20,6 +22,14 @@ export default function CountryTravelInfoCard({ info }: CountryTravelInfoCardPro
   const [showPassportInfo, setShowPassportInfo] = useState(false);
   const [showVaccineInfo, setShowVaccineInfo] = useState(false);
   const [showSecurityInfo, setShowSecurityInfo] = useState(false);
+
+  const destinationFlagUrl = getCountryFlagUrl(
+    info.country_name,
+    info.flag_emoji,
+    info.flag_image_url
+  );
+
+  const originFlagUrl = getCountryFlagUrl(info.origin_country);
 
   const handleOpenPassportLink = () => {
     const targetUrl =
@@ -43,7 +53,11 @@ export default function CountryTravelInfoCard({ info }: CountryTravelInfoCardPro
       <View style={styles.heroBanner}>
         <View style={styles.heroTopRow}>
           <View style={styles.flagBackdrop}>
-            <Text style={styles.heroFlagEmoji}>{info.flag_emoji || '🌍'}</Text>
+            <Image
+              source={{ uri: destinationFlagUrl }}
+              style={styles.heroFlagImage}
+              resizeMode="cover"
+            />
           </View>
           <View style={styles.heroBadgeGroup}>
             <View style={styles.heroAiPill}>
@@ -60,7 +74,12 @@ export default function CountryTravelInfoCard({ info }: CountryTravelInfoCardPro
         <View style={styles.heroContextRow}>
           <Text style={styles.heroContextLabel}>Viajando desde</Text>
           <View style={styles.heroOriginBadge}>
-            <Text style={styles.heroOriginText}>🏠 {info.origin_country || 'Origen'}</Text>
+            <Image
+              source={{ uri: originFlagUrl }}
+              style={styles.originFlagSmall}
+              resizeMode="cover"
+            />
+            <Text style={styles.heroOriginText}>{info.origin_country || 'Origen'}</Text>
           </View>
         </View>
       </View>
@@ -387,14 +406,22 @@ const styles = StyleSheet.create({
     width: 64,
     height: 64,
     borderRadius: 32,
-    backgroundColor: 'rgba(255, 255, 255, 0.18)',
+    backgroundColor: '#FFFFFF',
     alignItems: 'center',
     justifyContent: 'center',
-    borderWidth: 2,
-    borderColor: 'rgba(255, 255, 255, 0.3)',
+    overflow: 'hidden',
+    borderWidth: 2.5,
+    borderColor: 'rgba(255, 255, 255, 0.6)',
+    shadowColor: '#000',
+    shadowOpacity: 0.2,
+    shadowOffset: { width: 0, height: 4 },
+    shadowRadius: 6,
+    elevation: 4,
   },
-  heroFlagEmoji: {
-    fontSize: 40,
+  heroFlagImage: {
+    width: '100%',
+    height: '100%',
+    borderRadius: 32,
   },
   heroBadgeGroup: {
     alignItems: 'flex-end',
@@ -445,10 +472,18 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   heroOriginBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
     backgroundColor: 'rgba(255, 255, 255, 0.18)',
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-    borderRadius: 8,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 10,
+    gap: 6,
+  },
+  originFlagSmall: {
+    width: 18,
+    height: 13,
+    borderRadius: 3,
   },
   heroOriginText: {
     color: '#FFFFFF',

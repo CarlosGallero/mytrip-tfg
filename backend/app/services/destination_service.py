@@ -8,6 +8,7 @@ from google import genai
 from google.genai import types
 from app.core.config import settings
 from app.models.destination import DestinationInfoResponse, EstimatedDailyCost
+from app.utils.countries import get_country_iso_code, get_flag_image_url
 
 logger = logging.getLogger(__name__)
 
@@ -208,6 +209,11 @@ Responde ÚNICAMENTE con un objeto JSON válido con la siguiente estructura exac
                         f"Caché hit en MongoDB: recuperando datos para origen '{origin_country}' y destino '{clean_dest}'"
                     )
                     passport_req = bool(cached_doc.get("passport_required", True))
+                    country_name = str(cached_doc.get("destination_country", cached_doc.get("country_name", "Desconocido")))
+                    raw_flag = str(cached_doc.get("flag_emoji", "🌍"))
+                    country_code = cached_doc.get("country_code") or get_country_iso_code(country_name, raw_flag)
+                    flag_image_url = cached_doc.get("flag_image_url") or get_flag_image_url(country_name, raw_flag)
+
                     pass_url = None
                     pass_auth = None
                     pass_inst = None
@@ -217,8 +223,10 @@ Responde ÚNICAMENTE con un objeto JSON válido con la siguiente estructura exac
 
                     return DestinationInfoResponse(
                         destination_city=str(cached_doc.get("destination_city", clean_dest.split(",")[0].strip())),
-                        country_name=str(cached_doc.get("destination_country", cached_doc.get("country_name", "Desconocido"))),
-                        flag_emoji=str(cached_doc.get("flag_emoji", "🌍")),
+                        country_name=country_name,
+                        flag_emoji=raw_flag,
+                        flag_image_url=flag_image_url,
+                        country_code=country_code,
                         currency=str(cached_doc.get("currency", "Moneda local")),
                         passport_required=passport_req,
                         passport_details=str(cached_doc.get("passport_details", "")),
@@ -254,6 +262,7 @@ Determina con precisión el país al que pertenece dicho destino y responde ÚNI
   "destination_city": "Nombre de la ciudad destino",
   "country_name": "Nombre oficial en español del país destino",
   "flag_emoji": "Emoji de la bandera del país destino (ej. 🇯🇵, 🇫🇷, 🇪🇸)",
+  "country_code": "Código ISO-2 oficial en mayúsculas del país destino (ej. JP, FR, ES, AR, US)",
   "currency": "Nombre oficial de la moneda del país destino junto con su símbolo o código (ej. Yen japonés (¥ / JPY), Euro (€ / EUR), Dólar estadounidense ($ / USD))",
   "passport_required": true o false (booleano que indica si un ciudadano/residente proveniente de '{origin_country}' necesita obligatoriamente pasaporte para entrar al país destino, teniendo en cuenta acuerdos como Unión Europea / Espacio Schengen / Mercosur si aplican),
   "passport_details": "Explicación concisa y clara en español de los requisitos de documentación (DNI vs pasaporte, visado o autorización electrónica) para viajar desde '{origin_country}' al país destino.",
@@ -291,6 +300,8 @@ Determina con precisión el país al que pertenece dicho destino y responde ÚNI
                     dest_city = str(data.get("destination_city", clean_dest.split(",")[0].strip()))
                     dest_country = str(data.get("country_name", "Desconocido"))
                     flag_emoji = str(data.get("flag_emoji", "🌍"))
+                    country_code = str(data.get("country_code", "")).upper() or get_country_iso_code(dest_country, flag_emoji)
+                    flag_image_url = get_flag_image_url(dest_country, flag_emoji)
                     currency = str(data.get("currency", "Moneda local"))
                     passport_req = bool(data.get("passport_required", True))
                     passport_det = str(data.get("passport_details", "Verifica la documentación necesaria con las autoridades consulares."))
@@ -324,6 +335,8 @@ Determina con precisión el país al que pertenece dicho destino y responde ÚNI
                                 destination_city=dest_city,
                                 search_query=clean_dest,
                                 flag_emoji=flag_emoji,
+                                flag_image_url=flag_image_url,
+                                country_code=country_code,
                                 currency=currency,
                                 passport_required=passport_req,
                                 passport_details=passport_det,
@@ -346,6 +359,8 @@ Determina con precisión el país al que pertenece dicho destino y responde ÚNI
                         destination_city=dest_city,
                         country_name=dest_country,
                         flag_emoji=flag_emoji,
+                        flag_image_url=flag_image_url,
+                        country_code=country_code,
                         currency=currency,
                         passport_required=passport_req,
                         passport_details=passport_det,
@@ -380,10 +395,8 @@ Determina con precisión el país al que pertenece dicho destino y responde ÚNI
         city_name = parts[0] if parts else destination
         country_name = parts[-1] if len(parts) > 1 else ""
 
-        # Consulta con regex insensible a mayúsculas/minúsculas para el país de origen
         origin_filter = {"$regex": f"^{re.escape(origin_country)}$", "$options": "i"}
 
-        # 1. Búsqueda por query exacta o ciudad
         query_candidates = [
             {"origin_country": origin_filter, "search_query": {"$regex": f"^{re.escape(destination)}$", "$options": "i"}},
             {"origin_country": origin_filter, "destination_city": {"$regex": f"^{re.escape(city_name)}$", "$options": "i"}}
@@ -412,6 +425,8 @@ Determina con precisión el país al que pertenece dicho destino y responde ÚNI
         destination_city: str,
         search_query: str,
         flag_emoji: str,
+        flag_image_url: str,
+        country_code: str,
         currency: str,
         passport_required: bool,
         passport_details: str,
@@ -429,6 +444,8 @@ Determina con precisión el país al que pertenece dicho destino y responde ÚNI
             "destination_city": destination_city,
             "search_query": search_query,
             "flag_emoji": flag_emoji,
+            "flag_image_url": flag_image_url,
+            "country_code": country_code,
             "currency": currency,
             "passport_required": passport_required,
             "passport_details": passport_details,
@@ -467,10 +484,15 @@ Determina con precisión el país al que pertenece dicho destino y responde ÚNI
         if passport_req:
             pass_url, pass_auth, pass_inst = DestinationService._get_default_passport_link(origin_country)
 
+        country_code = get_country_iso_code(country, "")
+        flag_image_url = get_flag_image_url(country, "")
+
         return DestinationInfoResponse(
             destination_city=city,
             country_name=country,
             flag_emoji="🌍",
+            flag_image_url=flag_image_url,
+            country_code=country_code,
             currency="Moneda local",
             passport_required=passport_req,
             passport_details=f"Viaje desde {origin_country} hacia {country}. " + (

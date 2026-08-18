@@ -20,7 +20,9 @@ class EstimatedDailyCost(BaseModel):
 class DestinationInfoResponse(BaseModel):
     destination_city: str = Field(..., description="Ciudad destino identificada")
     country_name: str = Field(..., description="Nombre oficial del país destino en español")
-    flag_emoji: str = Field(..., description="Emoji de la bandera del país")
+    flag_emoji: str = Field(..., description="Emoji o código de la bandera del país")
+    flag_image_url: Optional[str] = Field(default=None, description="URL de alta resolución de la bandera oficial")
+    country_code: Optional[str] = Field(default=None, description="Código ISO-2 del país destino (ej. 'ES', 'JP')")
     currency: str = Field(..., description="Moneda usada con su símbolo y código en el país destino")
     passport_required: bool = Field(..., description="Si el usuario necesita pasaporte según su país origen")
     passport_details: str = Field(..., description="Detalles sobre requisitos de pasaporte y visado")
@@ -56,6 +58,8 @@ class CountryTravelInfoInDB(BaseModel):
     destination_city: str
     search_query: str
     flag_emoji: str
+    flag_image_url: Optional[str] = None
+    country_code: Optional[str] = None
     currency: str
     passport_required: bool
     passport_details: str
