@@ -48,6 +48,14 @@ async def create_indexes():
         
         # Índice único para enlaces oficiales de pasaporte por país de origen
         await db_instance.db["passport_links"].create_index("country", unique=True)
+        
+        # Índices para la colección de costes diarios por ciudad
+        await db_instance.db["city_daily_costs"].create_index(
+            [("destination_city", 1), ("currency", 1)]
+        )
+        await db_instance.db["city_daily_costs"].create_index(
+            [("destination_city", 1), ("destination_country", 1), ("currency", 1)]
+        )
         print("Índices de base de datos creados correctamente.")
     except Exception as e:
         print(f"Error al crear índices: {e}")

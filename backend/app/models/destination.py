@@ -12,10 +12,10 @@ class DestinationInfoRequest(BaseModel):
 
 class EstimatedDailyCost(BaseModel):
     currency: str = Field(..., description="Moneda del país del usuario (ej. 'EUR', 'USD', 'MXN')")
-    total_daily_cost: float = Field(..., description="Gasto diario aproximado total por persona")
-    food_daily_cost: float = Field(..., description="Gasto diario estimado en restaurantes y comidas")
-    activities_daily_cost: float = Field(..., description="Gasto diario estimado en actividades, tours, museos y parques")
-    breakdown_details: str = Field(..., description="Explicación del desglose del coste estimado diario")
+    total_daily_cost: float = Field(..., description="Gasto diario aproximado total por persona en esa ciudad")
+    food_daily_cost: float = Field(..., description="Gasto diario estimado en 1 desayuno y 1 comida en restaurante")
+    activities_daily_cost: float = Field(..., description="Gasto diario estimado en 1 actividad turística/cultural")
+    breakdown_details: str = Field(..., description="Explicación del desglose del coste estimado diario para la ciudad")
 
 class DestinationInfoResponse(BaseModel):
     destination_city: str = Field(..., description="Ciudad destino identificada")
@@ -43,12 +43,27 @@ class DestinationInfoResponse(BaseModel):
         default=None,
         description="Instrucciones breves oficiales para tramitar el pasaporte"
     )
+    estimated_daily_cost: Optional[EstimatedDailyCost] = Field(
+        default=None,
+        description="Presupuesto diario medio estimado por persona en esa ciudad (1 desayuno + 1 comida + 1 actividad)"
+    )
 
 class PassportLinkInDB(BaseModel):
     country: str = Field(..., description="Nombre del país de origen")
     passport_application_url: str = Field(..., description="URL oficial del portal de tramitación/cita previa")
     authority_name: str = Field(..., description="Organismo público oficial")
     instructions: Optional[str] = Field(default=None, description="Instrucciones del trámite")
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+    updated_at: datetime = Field(default_factory=datetime.utcnow)
+
+class CityDailyCostInDB(BaseModel):
+    destination_city: str = Field(..., description="Nombre de la ciudad")
+    destination_country: str = Field(..., description="Nombre del país")
+    currency: str = Field(..., description="Moneda en la que se calcula el coste (ej. EUR, USD)")
+    total_daily_cost: float = Field(..., description="Coste total diario por persona")
+    food_daily_cost: float = Field(..., description="Coste en 1 desayuno + 1 comida en restaurante")
+    activities_daily_cost: float = Field(..., description="Coste en 1 actividad o entrada cultural")
+    breakdown_details: str = Field(..., description="Detalle del cálculo para la ciudad")
     created_at: datetime = Field(default_factory=datetime.utcnow)
     updated_at: datetime = Field(default_factory=datetime.utcnow)
 
