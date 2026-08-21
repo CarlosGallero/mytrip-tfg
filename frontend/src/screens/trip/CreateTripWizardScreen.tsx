@@ -10,22 +10,21 @@ import {
 
 import CityAutocomplete from '../../components/CityAutocomplete';
 import CountryTravelInfoCard from '../../components/trip/CountryTravelInfoCard';
+import TripDateBudgetStep from '../../components/trip/TripDateBudgetStep';
 import { fetchDestinationTravelInfo } from '../../api/destinations';
-import { DestinationTravelInfo } from '../../types';
+import { DestinationTravelInfo, TripWizardData } from '../../types';
 import { colors } from '../../theme/colors';
 import { theme } from '../../theme/theme';
 
 type CreateTripWizardScreenProps = {
   onCancel?: () => void;
-  onNext?: (formData: {
-    destination: string;
-    countryInfo?: DestinationTravelInfo | null;
-    hasPassport?: boolean | null;
-  }) => void;
+  onComplete?: (formData: TripWizardData) => void;
+  onNext?: (formData: TripWizardData) => void;
 };
 
 export default function CreateTripWizardScreen({
   onCancel,
+  onComplete,
   onNext,
 }: CreateTripWizardScreenProps) {
   const totalSteps = 4;
@@ -33,6 +32,14 @@ export default function CreateTripWizardScreen({
   const [destination, setDestination] = useState('');
   const [countryInfo, setCountryInfo] = useState<DestinationTravelInfo | null>(null);
   const [hasPassport, setHasPassport] = useState<boolean | null>(null);
+
+  // Paso 3: Fechas y Presupuesto
+  const [startDate, setStartDate] = useState<string | null>(null);
+  const [endDate, setEndDate] = useState<string | null>(null);
+  const [totalDays, setTotalDays] = useState(0);
+  const [totalNights, setTotalNights] = useState(0);
+  const [budget, setBudget] = useState<number | null>(null);
+
   const [isLoadingCountryInfo, setIsLoadingCountryInfo] = useState(false);
   const [loadingError, setLoadingError] = useState<string | null>(null);
   const [lastFetchedDestination, setLastFetchedDestination] = useState('');
@@ -51,8 +58,17 @@ export default function CreateTripWizardScreen({
       }
       return true;
     }
+    if (currentStep === 3) {
+      // En el paso 3 se requiere tener fecha de inicio, fin y presupuesto > 0
+      return (
+        startDate !== null &&
+        endDate !== null &&
+        budget !== null &&
+        budget > 0
+      );
+    }
     return true;
-  }, [currentStep, destination, countryInfo, hasPassport]);
+  }, [currentStep, destination, countryInfo, hasPassport, startDate, endDate, budget]);
 
   const loadTravelData = async (targetDestination: string) => {
     setIsLoadingCountryInfo(true);
@@ -73,6 +89,18 @@ export default function CreateTripWizardScreen({
     }
   };
 
+  const handleDatesChange = (
+    start: string | null,
+    end: string | null,
+    days: number,
+    nights: number
+  ) => {
+    setStartDate(start);
+    setEndDate(end);
+    setTotalDays(days);
+    setTotalNights(nights);
+  };
+
   const handleContinue = async () => {
     if (!canContinue || isLoadingCountryInfo) {
       return;
@@ -90,13 +118,30 @@ export default function CreateTripWizardScreen({
       return;
     }
 
+    // Avanzar internamente en los pasos del wizard
     if (currentStep < totalSteps) {
       setCurrentStep((step) => step + 1);
-      onNext?.({ destination: cleanDest, countryInfo, hasPassport });
       return;
     }
 
-    onNext?.({ destination: cleanDest, countryInfo, hasPassport });
+    // Al finalizar el último paso (Paso 4), emitir datos consolidados
+    const finalData: TripWizardData = {
+      destination: cleanDest,
+      countryInfo,
+      hasPassport,
+      startDate,
+      endDate,
+      totalDays,
+      totalNights,
+      budget,
+      currency: countryInfo?.estimated_daily_cost?.currency || 'EUR',
+    };
+
+    if (onComplete) {
+      onComplete(finalData);
+    } else if (onNext) {
+      onNext(finalData);
+    }
   };
 
   const handleBack = () => {
@@ -221,11 +266,51 @@ export default function CreateTripWizardScreen({
       );
     }
 
-    // Pasos siguientes
+    // Paso 3: Fechas y Presupuesto
+    if (currentStep === 3) {
+      return (
+        <View style={styles.stepContent}>
+          <Text style={styles.title}>Fechas y Presupuesto</Text>
+          <Text style={styles.subtitle}>
+            Organiza los días de estancia en {countryInfo?.destination_city || destination} y define tu presupuesto de ocio.
+          </Text>
+
+          <TripDateBudgetStep
+            countryInfo={countryInfo}
+            startDate={startDate}
+            endDate={endDate}
+            budget={budget}
+            onDatesChange={handleDatesChange}
+            onBudgetChange={setBudget}
+          />
+        </View>
+      );
+    }
+
+    // Paso 4: Resumen final
     return (
       <View style={styles.stepContent}>
-        <Text style={styles.title}>Paso {currentStep}</Text>
-        <Text style={styles.subtitle}>Configuración del viaje hacia {destination}.</Text>
+        <Text style={styles.title}>Resumen del Viaje</Text>
+        <Text style={styles.subtitle}>Revisa los detalles antes de crear tu itinerario para {destination}.</Text>
+
+        <View style={styles.summaryCard}>
+          <View style={styles.summaryRow}>
+            <Text style={styles.summaryLabel}>Destino:</Text>
+            <Text style={styles.summaryValue}>{countryInfo?.destination_city || destination}, {countryInfo?.country_name}</Text>
+          </View>
+          <View style={styles.summaryRow}>
+            <Text style={styles.summaryLabel}>Fechas:</Text>
+            <Text style={styles.summaryValue}>{startDate} al {endDate}</Text>
+          </View>
+          <View style={styles.summaryRow}>
+            <Text style={styles.summaryLabel}>Duración:</Text>
+            <Text style={styles.summaryValue}>{totalDays} días ({totalNights} noches)</Text>
+          </View>
+          <View style={styles.summaryRow}>
+            <Text style={styles.summaryLabel}>Presupuesto (Comidas y ocio):</Text>
+            <Text style={styles.summaryValue}>{budget} {countryInfo?.estimated_daily_cost?.currency || 'EUR'}</Text>
+          </View>
+        </View>
       </View>
     );
   };
@@ -240,7 +325,16 @@ export default function CreateTripWizardScreen({
       }
       return 'Continuar';
     }
-    return 'Continuar';
+    if (currentStep === 3) {
+      if (!startDate || !endDate) {
+        return 'Selecciona las fechas';
+      }
+      if (!budget || budget <= 0) {
+        return 'Indica tu presupuesto';
+      }
+      return 'Continuar';
+    }
+    return 'Crear Viaje';
   };
 
   return (
@@ -273,12 +367,21 @@ export default function CreateTripWizardScreen({
               </Pressable>
             )}
 
+            {currentStep === 3 && (
+              <Pressable
+                onPress={() => setCurrentStep(2)}
+                style={styles.secondaryButton}
+              >
+                <Text style={styles.secondaryButtonText}>Ver requisitos</Text>
+              </Pressable>
+            )}
+
             <Pressable
               onPress={handleContinue}
               disabled={!canContinue || isLoadingCountryInfo}
               style={[
                 styles.primaryButton,
-                currentStep === 2 && styles.primaryButtonFlex,
+                currentStep > 1 && styles.primaryButtonFlex,
                 (!canContinue || isLoadingCountryInfo) && styles.primaryButtonDisabled,
               ]}
             >
@@ -452,6 +555,29 @@ const styles = StyleSheet.create({
   emptyText: {
     color: colors.textMuted,
     fontSize: 15,
+  },
+  summaryCard: {
+    backgroundColor: colors.surface,
+    borderRadius: 18,
+    padding: theme.spacing.lg,
+    borderWidth: 1,
+    borderColor: colors.border,
+    gap: 12,
+  },
+  summaryRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  summaryLabel: {
+    fontSize: 14,
+    color: colors.textMuted,
+    fontWeight: '600',
+  },
+  summaryValue: {
+    fontSize: 15,
+    color: colors.text,
+    fontWeight: '800',
   },
   buttonRow: {
     flexDirection: 'row',

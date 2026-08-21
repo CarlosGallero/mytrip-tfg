@@ -10,7 +10,7 @@ import MyTripsScreen from './src/screens/trips/MyTripsScreen';
 import { colors } from './src/theme/colors';
 import { theme } from './src/theme/theme';
 
-import { DestinationTravelInfo } from './src/types';
+import { DestinationTravelInfo, TripWizardData } from './src/types';
 
 type ActiveTab = 'profile' | 'trips';
 
@@ -18,10 +18,7 @@ function AuthenticatedApp({ onLogout }: { onLogout: () => void }) {
   const [activeTab, setActiveTab] = useState<ActiveTab>('profile');
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [showCreateTripWizard, setShowCreateTripWizard] = useState(false);
-  const [tripDraft, setTripDraft] = useState<{
-    destination: string;
-    countryInfo?: DestinationTravelInfo | null;
-  }>({ destination: '' });
+  const [tripDraft, setTripDraft] = useState<TripWizardData | null>(null);
 
   useEffect(() => {
     const loadUser = async () => {
@@ -38,8 +35,8 @@ function AuthenticatedApp({ onLogout }: { onLogout: () => void }) {
     return (
       <CreateTripWizardScreen
         onCancel={() => setShowCreateTripWizard(false)}
-        onNext={(nextData) => {
-          setTripDraft(nextData);
+        onComplete={(finalData) => {
+          setTripDraft(finalData);
           setShowCreateTripWizard(false);
         }}
       />
