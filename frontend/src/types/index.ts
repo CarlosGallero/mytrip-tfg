@@ -36,4 +36,7 @@ export interface TripWizardData {
   totalNights?: number;
   budget?: number | null;
   currency?: string;
+  hasMobilityIssues?: boolean | null;
+  healthConditions?: string[];
+  dietaryPreferences?: string[];
 }

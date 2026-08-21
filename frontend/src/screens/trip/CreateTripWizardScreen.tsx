@@ -3,6 +3,7 @@ import {
   ActivityIndicator,
   Pressable,
   SafeAreaView,
+  ScrollView,
   StyleSheet,
   Text,
   View,
@@ -11,6 +12,7 @@ import {
 import CityAutocomplete from '../../components/CityAutocomplete';
 import CountryTravelInfoCard from '../../components/trip/CountryTravelInfoCard';
 import TripDateBudgetStep from '../../components/trip/TripDateBudgetStep';
+import TripAccessibilityHealthStep from '../../components/trip/TripAccessibilityHealthStep';
 import { fetchDestinationTravelInfo } from '../../api/destinations';
 import { DestinationTravelInfo, TripWizardData } from '../../types';
 import { colors } from '../../theme/colors';
@@ -27,7 +29,7 @@ export default function CreateTripWizardScreen({
   onComplete,
   onNext,
 }: CreateTripWizardScreenProps) {
-  const totalSteps = 4;
+  const totalSteps = 5;
   const [currentStep, setCurrentStep] = useState(1);
   const [destination, setDestination] = useState('');
   const [countryInfo, setCountryInfo] = useState<DestinationTravelInfo | null>(null);
@@ -39,6 +41,11 @@ export default function CreateTripWizardScreen({
   const [totalDays, setTotalDays] = useState(0);
   const [totalNights, setTotalNights] = useState(0);
   const [budget, setBudget] = useState<number | null>(null);
+
+  // Paso 4: Accesibilidad, Salud y Preferencias Dietéticas
+  const [hasMobilityIssues, setHasMobilityIssues] = useState<boolean | null>(null);
+  const [healthConditions, setHealthConditions] = useState<string[]>([]);
+  const [dietaryPreferences, setDietaryPreferences] = useState<string[]>([]);
 
   const [isLoadingCountryInfo, setIsLoadingCountryInfo] = useState(false);
   const [loadingError, setLoadingError] = useState<string | null>(null);
@@ -67,8 +74,21 @@ export default function CreateTripWizardScreen({
         budget > 0
       );
     }
+    if (currentStep === 4) {
+      // En el paso 4 se debe indicar si tiene o no problemas de movilidad
+      return hasMobilityIssues !== null;
+    }
     return true;
-  }, [currentStep, destination, countryInfo, hasPassport, startDate, endDate, budget]);
+  }, [
+    currentStep,
+    destination,
+    countryInfo,
+    hasPassport,
+    startDate,
+    endDate,
+    budget,
+    hasMobilityIssues,
+  ]);
 
   const loadTravelData = async (targetDestination: string) => {
     setIsLoadingCountryInfo(true);
@@ -124,7 +144,7 @@ export default function CreateTripWizardScreen({
       return;
     }
 
-    // Al finalizar el último paso (Paso 4), emitir datos consolidados
+    // Al finalizar el último paso (Paso 5), emitir datos consolidados
     const finalData: TripWizardData = {
       destination: cleanDest,
       countryInfo,
@@ -135,6 +155,9 @@ export default function CreateTripWizardScreen({
       totalNights,
       budget,
       currency: countryInfo?.estimated_daily_cost?.currency || 'EUR',
+      hasMobilityIssues,
+      healthConditions,
+      dietaryPreferences,
     };
 
     if (onComplete) {
@@ -287,31 +310,98 @@ export default function CreateTripWizardScreen({
       );
     }
 
-    // Paso 4: Resumen final
+    // Paso 4: Accesibilidad, Salud y Dieta
+    if (currentStep === 4) {
+      return (
+        <View style={styles.stepContent}>
+          <Text style={styles.title}>Accesibilidad y Preferencias</Text>
+          <Text style={styles.subtitle}>
+            Personaliza el viaje según tus necesidades físicas, de salud y alimentarias.
+          </Text>
+
+          <TripAccessibilityHealthStep
+            hasMobilityIssues={hasMobilityIssues}
+            healthConditions={healthConditions}
+            dietaryPreferences={dietaryPreferences}
+            onMobilityChange={setHasMobilityIssues}
+            onHealthConditionsChange={setHealthConditions}
+            onDietaryPreferencesChange={setDietaryPreferences}
+          />
+        </View>
+      );
+    }
+
+    // Paso 5: Resumen final
     return (
-      <View style={styles.stepContent}>
+      <ScrollView style={styles.stepContent} showsVerticalScrollIndicator={false}>
         <Text style={styles.title}>Resumen del Viaje</Text>
-        <Text style={styles.subtitle}>Revisa los detalles antes de crear tu itinerario para {destination}.</Text>
+        <Text style={styles.subtitle}>
+          Revisa todos los detalles configurados antes de generar tu itinerario para {countryInfo?.destination_city || destination}.
+        </Text>
 
         <View style={styles.summaryCard}>
           <View style={styles.summaryRow}>
             <Text style={styles.summaryLabel}>Destino:</Text>
-            <Text style={styles.summaryValue}>{countryInfo?.destination_city || destination}, {countryInfo?.country_name}</Text>
+            <Text style={styles.summaryValue}>
+              {countryInfo?.destination_city || destination}, {countryInfo?.country_name}
+            </Text>
           </View>
+
           <View style={styles.summaryRow}>
             <Text style={styles.summaryLabel}>Fechas:</Text>
             <Text style={styles.summaryValue}>{startDate} al {endDate}</Text>
           </View>
+
           <View style={styles.summaryRow}>
             <Text style={styles.summaryLabel}>Duración:</Text>
             <Text style={styles.summaryValue}>{totalDays} días ({totalNights} noches)</Text>
           </View>
+
           <View style={styles.summaryRow}>
             <Text style={styles.summaryLabel}>Presupuesto (Comidas y ocio):</Text>
-            <Text style={styles.summaryValue}>{budget} {countryInfo?.estimated_daily_cost?.currency || 'EUR'}</Text>
+            <Text style={styles.summaryValue}>
+              {budget} {countryInfo?.estimated_daily_cost?.currency || 'EUR'}
+            </Text>
+          </View>
+
+          <View style={styles.summaryRow}>
+            <Text style={styles.summaryLabel}>Accesibilidad:</Text>
+            <Text style={styles.summaryValue}>
+              {hasMobilityIssues ? '♿ Rutas 100% Adaptadas' : '🚶‍♂️ Estándar (sin restricciones)'}
+            </Text>
+          </View>
+
+          <View style={styles.summarySectionBlock}>
+            <Text style={styles.summarySectionTitle}>Condiciones de salud:</Text>
+            {healthConditions.length > 0 ? (
+              <View style={styles.summaryBadgesWrap}>
+                {healthConditions.map((hc, idx) => (
+                  <View key={idx} style={styles.summaryHealthBadge}>
+                    <Text style={styles.summaryHealthBadgeText}>🩺 {hc}</Text>
+                  </View>
+                ))}
+              </View>
+            ) : (
+              <Text style={styles.summaryMutedText}>Sin condiciones médicas registradas</Text>
+            )}
+          </View>
+
+          <View style={styles.summarySectionBlock}>
+            <Text style={styles.summarySectionTitle}>Preferencias dietéticas y alergias:</Text>
+            {dietaryPreferences.length > 0 ? (
+              <View style={styles.summaryBadgesWrap}>
+                {dietaryPreferences.map((dp, idx) => (
+                  <View key={idx} style={styles.summaryDietBadge}>
+                    <Text style={styles.summaryDietBadgeText}>🍽️ {dp}</Text>
+                  </View>
+                ))}
+              </View>
+            ) : (
+              <Text style={styles.summaryMutedText}>Dieta estándar (sin restricciones)</Text>
+            )}
           </View>
         </View>
-      </View>
+      </ScrollView>
     );
   };
 
@@ -333,6 +423,12 @@ export default function CreateTripWizardScreen({
         return 'Indica tu presupuesto';
       }
       return 'Continuar';
+    }
+    if (currentStep === 4) {
+      if (hasMobilityIssues === null) {
+        return 'Indica tu movilidad';
+      }
+      return 'Continuar al Resumen';
     }
     return 'Crear Viaje';
   };
@@ -373,6 +469,24 @@ export default function CreateTripWizardScreen({
                 style={styles.secondaryButton}
               >
                 <Text style={styles.secondaryButtonText}>Ver requisitos</Text>
+              </Pressable>
+            )}
+
+            {currentStep === 4 && (
+              <Pressable
+                onPress={() => setCurrentStep(3)}
+                style={styles.secondaryButton}
+              >
+                <Text style={styles.secondaryButtonText}>Modificar fechas</Text>
+              </Pressable>
+            )}
+
+            {currentStep === 5 && (
+              <Pressable
+                onPress={() => setCurrentStep(4)}
+                style={styles.secondaryButton}
+              >
+                <Text style={styles.secondaryButtonText}>Editar salud/dieta</Text>
               </Pressable>
             )}
 
@@ -577,7 +691,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingBottom: 8,
+    paddingBottom: 10,
     borderBottomWidth: 1,
     borderBottomColor: '#F1F5F9',
   },
@@ -590,6 +704,57 @@ const styles = StyleSheet.create({
     fontSize: 15,
     color: colors.text,
     fontWeight: '800',
+    textAlign: 'right',
+    flexShrink: 1,
+    marginLeft: 8,
+  },
+  summarySectionBlock: {
+    paddingTop: 4,
+    paddingBottom: 8,
+    borderBottomWidth: 1,
+    borderBottomColor: '#F1F5F9',
+  },
+  summarySectionTitle: {
+    fontSize: 13,
+    fontWeight: '800',
+    color: colors.text,
+    marginBottom: 6,
+  },
+  summaryBadgesWrap: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 6,
+  },
+  summaryHealthBadge: {
+    backgroundColor: '#FEF2F2',
+    borderRadius: 8,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderWidth: 1,
+    borderColor: '#FECACA',
+  },
+  summaryHealthBadgeText: {
+    color: '#B91C1C',
+    fontSize: 12,
+    fontWeight: '700',
+  },
+  summaryDietBadge: {
+    backgroundColor: '#ECFDF5',
+    borderRadius: 8,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderWidth: 1,
+    borderColor: '#A7F3D0',
+  },
+  summaryDietBadgeText: {
+    color: '#047857',
+    fontSize: 12,
+    fontWeight: '700',
+  },
+  summaryMutedText: {
+    fontSize: 13,
+    color: colors.textMuted,
+    fontStyle: 'italic',
   },
   buttonRow: {
     flexDirection: 'row',
