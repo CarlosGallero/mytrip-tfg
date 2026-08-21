@@ -74,7 +74,6 @@ export default function CountryTravelInfoCard({
             />
           </View>
           <View style={styles.heroBadgeGroup}>
-            
             <View style={styles.heroCountryPill}>
               <Text style={styles.heroCountryPillText}>{info.country_name}</Text>
             </View>
@@ -101,7 +100,7 @@ export default function CountryTravelInfoCard({
         {/* 1. Moneda */}
         <View style={styles.infoCard}>
           <View style={styles.cardHeaderRow}>
-            <View style={[styles.iconCircle, { backgroundColor: '#EBF3FF' }]}>
+            <View style={[styles.iconCircle, { backgroundColor: '#EEF4FF' }]}>
               <Text style={styles.iconText}>💰</Text>
             </View>
             <View style={styles.cardTitleContainer}>
@@ -117,7 +116,7 @@ export default function CountryTravelInfoCard({
             <View
               style={[
                 styles.iconCircle,
-                { backgroundColor: info.passport_required ? '#FFF4E5' : '#E6FFFB' },
+                { backgroundColor: info.passport_required ? '#FFFBEB' : '#ECFDF5' },
               ]}
             >
               <Text style={styles.iconText}>🛂</Text>
@@ -276,7 +275,7 @@ export default function CountryTravelInfoCard({
             <View
               style={[
                 styles.iconCircle,
-                { backgroundColor: info.vaccination_required ? '#FFF4E5' : '#EBF9F5' },
+                { backgroundColor: info.vaccination_required ? '#FFFBEB' : '#ECFDF5' },
               ]}
             >
               <Text style={styles.iconText}>💉</Text>
@@ -341,7 +340,7 @@ export default function CountryTravelInfoCard({
             <View
               style={[
                 styles.iconCircle,
-                { backgroundColor: info.has_armed_conflict ? '#FFEBEB' : '#EBF9F5' },
+                { backgroundColor: info.has_armed_conflict ? '#FEF2F2' : '#ECFDF5' },
               ]}
             >
               <Text style={styles.iconText}>
@@ -414,11 +413,13 @@ const styles = StyleSheet.create({
     borderRadius: 24,
     padding: theme.spacing.xl,
     marginBottom: theme.spacing.lg,
-    shadowColor: '#2F1DB2',
+    shadowColor: '#1E127D',
     shadowOpacity: 0.35,
     shadowOffset: { width: 0, height: 8 },
     shadowRadius: 18,
     elevation: 8,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.15)',
   },
   heroTopRow: {
     flexDirection: 'row',
@@ -435,7 +436,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     overflow: 'hidden',
     borderWidth: 2.5,
-    borderColor: 'rgba(255, 255, 255, 0.6)',
+    borderColor: 'rgba(255, 255, 255, 0.75)',
     shadowColor: '#000',
     shadowOpacity: 0.2,
     shadowOffset: { width: 0, height: 4 },
@@ -451,23 +452,16 @@ const styles = StyleSheet.create({
     alignItems: 'flex-end',
     gap: 6,
   },
-  heroAiPill: {
-    backgroundColor: 'rgba(255, 255, 255, 0.2)',
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: 12,
-  },
-  heroAiPillText: {
-    color: '#FFFFFF',
-    fontSize: 11,
-    fontWeight: '800',
-    letterSpacing: 0.3,
-  },
   heroCountryPill: {
     backgroundColor: '#FFFFFF',
-    paddingHorizontal: 12,
-    paddingVertical: 5,
+    paddingHorizontal: 14,
+    paddingVertical: 6,
     borderRadius: 14,
+    shadowColor: '#000',
+    shadowOpacity: 0.1,
+    shadowOffset: { width: 0, height: 2 },
+    shadowRadius: 4,
+    elevation: 2,
   },
   heroCountryPillText: {
     color: '#2F1DB2',
@@ -487,18 +481,18 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 8,
     borderTopWidth: 1,
-    borderTopColor: 'rgba(255, 255, 255, 0.15)',
+    borderTopColor: 'rgba(255, 255, 255, 0.2)',
     paddingTop: 10,
   },
   heroContextLabel: {
-    color: 'rgba(255, 255, 255, 0.75)',
+    color: 'rgba(255, 255, 255, 0.8)',
     fontSize: 12,
     fontWeight: '600',
   },
   heroOriginBadge: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: 'rgba(255, 255, 255, 0.18)',
+    backgroundColor: 'rgba(255, 255, 255, 0.2)',
     paddingHorizontal: 10,
     paddingVertical: 4,
     borderRadius: 10,
@@ -515,22 +509,22 @@ const styles = StyleSheet.create({
     fontWeight: '700',
   },
   cardsGrid: {
-    gap: theme.spacing.md,
+    gap: 14,
   },
   infoCard: {
-    backgroundColor: colors.surface,
-    borderRadius: 20,
-    padding: theme.spacing.lg,
-    borderWidth: 1,
-    borderColor: colors.border,
-    shadowColor: colors.shadow,
-    shadowOpacity: 0.05,
-    shadowOffset: { width: 0, height: 4 },
-    shadowRadius: 10,
-    elevation: 2,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 22,
+    padding: 18,
+    borderWidth: 1.5,
+    borderColor: '#CBD5E1',
+    shadowColor: '#0F172A',
+    shadowOpacity: 0.08,
+    shadowOffset: { width: 0, height: 6 },
+    shadowRadius: 14,
+    elevation: 3,
   },
   infoCardDanger: {
-    borderColor: '#FFA8A8',
+    borderColor: '#FCA5A5',
     backgroundColor: '#FFF8F8',
   },
   cardHeaderRow: {
@@ -538,12 +532,14 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   iconCircle: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
+    width: 46,
+    height: 46,
+    borderRadius: 23,
     alignItems: 'center',
     justifyContent: 'center',
-    marginRight: 12,
+    marginRight: 14,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
   },
   iconText: {
     fontSize: 22,
@@ -577,22 +573,28 @@ const styles = StyleSheet.create({
   },
   statusSuccess: {
     backgroundColor: colors.successSoft,
+    borderWidth: 1,
+    borderColor: '#A7F3D0',
   },
   statusSuccessText: {
-    color: '#08877B',
+    color: '#047857',
     fontSize: 12,
     fontWeight: '800',
   },
   statusWarning: {
-    backgroundColor: '#FFF4E5',
+    backgroundColor: '#FFFBEB',
+    borderWidth: 1,
+    borderColor: '#FDE68A',
   },
   statusWarningText: {
-    color: '#D97706',
+    color: '#B45309',
     fontSize: 12,
     fontWeight: '800',
   },
   statusDanger: {
-    backgroundColor: '#FFEBEB',
+    backgroundColor: '#FEF2F2',
+    borderWidth: 1,
+    borderColor: '#FECACA',
   },
   statusDangerText: {
     color: colors.danger,
@@ -601,9 +603,9 @@ const styles = StyleSheet.create({
   },
   /* Botón + info */
   infoToggleBtn: {
-    backgroundColor: colors.surfaceSoft,
-    borderWidth: 1,
-    borderColor: colors.border,
+    backgroundColor: '#F1F5F9',
+    borderWidth: 1.5,
+    borderColor: '#CBD5E1',
     paddingHorizontal: 12,
     paddingVertical: 6,
     borderRadius: 12,
@@ -628,33 +630,36 @@ const styles = StyleSheet.create({
   /* Contenedor expandido */
   expandedInfoContainer: {
     marginTop: 12,
-    backgroundColor: colors.surfaceSoft,
-    borderRadius: 12,
-    padding: 12,
-    borderLeftWidth: 3,
+    backgroundColor: '#F8FAFC',
+    borderRadius: 14,
+    padding: 14,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    borderLeftWidth: 4,
     borderLeftColor: colors.primary,
   },
   expandedInfoText: {
     fontSize: 13,
     color: colors.text,
     lineHeight: 20,
+    fontWeight: '500',
   },
   /* Pregunta interactiva de pasaporte */
   passportQuestionSection: {
-    marginTop: 14,
-    backgroundColor: colors.surfaceSoft,
-    borderRadius: 16,
-    padding: theme.spacing.md,
-    borderWidth: 1,
-    borderColor: colors.border,
+    marginTop: 16,
+    backgroundColor: '#F8FAFC',
+    borderRadius: 18,
+    padding: 16,
+    borderWidth: 1.5,
+    borderColor: '#CBD5E1',
   },
   passportQuestionPending: {
-    borderColor: '#D97706',
-    borderWidth: 1.5,
+    borderColor: '#F59E0B',
+    borderWidth: 2,
     backgroundColor: '#FFFDF9',
   },
   questionHeader: {
-    marginBottom: 10,
+    marginBottom: 12,
   },
   questionTitleRow: {
     flexDirection: 'row',
@@ -662,7 +667,7 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     flexWrap: 'wrap',
     gap: 6,
-    marginBottom: 2,
+    marginBottom: 4,
   },
   questionTitle: {
     fontSize: 14,
@@ -670,35 +675,42 @@ const styles = StyleSheet.create({
     color: colors.text,
   },
   requiredPill: {
-    backgroundColor: '#FFF4E5',
+    backgroundColor: '#FEF3C7',
     paddingHorizontal: 8,
-    paddingVertical: 2,
+    paddingVertical: 3,
     borderRadius: 6,
+    borderWidth: 1,
+    borderColor: '#FDE68A',
   },
   requiredPillText: {
-    color: '#D97706',
+    color: '#B45309',
     fontSize: 10,
     fontWeight: '800',
   },
   questionSubtitle: {
     fontSize: 12,
     color: colors.textMuted,
-    lineHeight: 16,
+    lineHeight: 17,
   },
   choiceRow: {
     flexDirection: 'row',
-    gap: 8,
+    gap: 10,
   },
   choiceButton: {
     flex: 1,
-    backgroundColor: colors.surface,
-    borderRadius: 12,
-    paddingVertical: 10,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 14,
+    paddingVertical: 12,
     paddingHorizontal: 8,
     alignItems: 'center',
     justifyContent: 'center',
-    borderWidth: 1,
-    borderColor: colors.border,
+    borderWidth: 1.5,
+    borderColor: '#CBD5E1',
+    shadowColor: '#0F172A',
+    shadowOpacity: 0.04,
+    shadowOffset: { width: 0, height: 2 },
+    shadowRadius: 4,
+    elevation: 1,
   },
   choiceButtonActiveSuccess: {
     backgroundColor: colors.primary,
@@ -709,37 +721,40 @@ const styles = StyleSheet.create({
     borderColor: '#D97706',
   },
   choiceButtonText: {
-    fontSize: 12,
+    fontSize: 13,
     fontWeight: '700',
     color: colors.text,
   },
   choiceButtonTextActive: {
     color: colors.white,
+    fontWeight: '800',
   },
   passportReadyCard: {
-    marginTop: 10,
-    backgroundColor: colors.successSoft,
-    borderRadius: 10,
-    padding: 10,
+    marginTop: 12,
+    backgroundColor: '#ECFDF5',
+    borderRadius: 12,
+    padding: 12,
     borderLeftWidth: 4,
-    borderLeftColor: colors.success,
+    borderLeftColor: '#10B981',
+    borderWidth: 1,
+    borderColor: '#A7F3D0',
   },
   passportReadyText: {
     fontSize: 12,
     fontWeight: '700',
-    color: '#08877B',
-    lineHeight: 16,
+    color: '#047857',
+    lineHeight: 17,
   },
   passportHelpCard: {
-    marginTop: 10,
+    marginTop: 12,
     backgroundColor: '#FFFDF7',
-    borderRadius: 12,
-    padding: 12,
-    borderWidth: 1,
+    borderRadius: 14,
+    padding: 14,
+    borderWidth: 1.5,
     borderColor: '#FDE68A',
   },
   helpHeaderRow: {
-    marginBottom: 4,
+    marginBottom: 6,
   },
   helpBadge: {
     fontSize: 12,
@@ -748,32 +763,32 @@ const styles = StyleSheet.create({
   },
   helpAuthority: {
     fontSize: 13,
-    fontWeight: '700',
+    fontWeight: '800',
     color: colors.text,
     marginBottom: 4,
   },
   helpInstructions: {
     fontSize: 12,
     color: colors.text,
-    lineHeight: 17,
-    marginBottom: 10,
+    lineHeight: 18,
+    marginBottom: 12,
   },
   openLinkButton: {
     backgroundColor: colors.primary,
-    borderRadius: 10,
-    paddingVertical: 10,
-    paddingHorizontal: 12,
+    borderRadius: 12,
+    paddingVertical: 12,
+    paddingHorizontal: 14,
     alignItems: 'center',
     justifyContent: 'center',
     shadowColor: colors.primaryDark,
-    shadowOpacity: 0.15,
-    shadowOffset: { width: 0, height: 3 },
-    shadowRadius: 6,
-    elevation: 2,
+    shadowOpacity: 0.25,
+    shadowOffset: { width: 0, height: 4 },
+    shadowRadius: 8,
+    elevation: 3,
   },
   openLinkButtonText: {
     color: colors.white,
-    fontSize: 12,
+    fontSize: 13,
     fontWeight: '800',
     textAlign: 'center',
   },

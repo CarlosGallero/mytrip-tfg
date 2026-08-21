@@ -183,9 +183,6 @@ export default function TripDateBudgetStep({
       <View style={styles.card}>
         <View style={styles.cardHeader}>
           <Text style={styles.cardTitle}>📅 Fechas del viaje</Text>
-          <Text style={styles.cardSubtitle}>
-            Selecciona la fecha de llegada y de salida en el calendario
-          </Text>
         </View>
 
         {/* Cabecera del calendario con navegación de mes */}
@@ -269,9 +266,6 @@ export default function TripDateBudgetStep({
       <View style={styles.card}>
         <View style={styles.cardHeader}>
           <Text style={styles.cardTitle}>💰 Presupuesto para comidas y ocio</Text>
-          <Text style={styles.cardSubtitle}>
-            Indica cuánto deseas destinar para la estancia en {cityName}.
-          </Text>
         </View>
 
         {/* Estimación calculada por la IA para la ciudad */}
@@ -286,7 +280,7 @@ export default function TripDateBudgetStep({
 
             <View style={styles.aiBreakdownRow}>
               <View style={styles.aiBreakdownItem}>
-                <Text style={styles.aiBreakdownLabel}>🍽️ Desayuno + Comida</Text>
+                <Text style={styles.aiBreakdownLabel}>🍽️ Desayuno + 1 Comida</Text>
                 <Text style={styles.aiBreakdownValue}>~{dailyCostInfo.food_daily_cost.toFixed(0)} {currencySymbol}/día</Text>
               </View>
               <View style={styles.aiBreakdownItem}>
@@ -295,9 +289,7 @@ export default function TripDateBudgetStep({
               </View>
             </View>
 
-            {dailyCostInfo.breakdown_details ? (
-              <Text style={styles.aiBreakdownDetailsText}>{dailyCostInfo.breakdown_details}</Text>
-            ) : null}
+          
 
             {suggestedTotalBudget !== null && (
               <Pressable
@@ -338,7 +330,7 @@ export default function TripDateBudgetStep({
             <Text style={styles.disclaimerTitle}>Importante sobre el presupuesto</Text>
             <Text style={styles.disclaimerBody}>
               Este cálculo contempla <Text style={styles.boldText}>exclusivamente comidas y actividades/visitas turísticas</Text> en {cityName}.
-              El transporte (vuelos, trenes) y el alojamiento se configuran por separado.
+              El transporte (vuelos, trenes) y el alojamiento van por separado.
             </Text>
           </View>
         </View>
@@ -356,16 +348,16 @@ const styles = StyleSheet.create({
     paddingBottom: 24,
   },
   card: {
-    backgroundColor: colors.surface,
-    borderRadius: 20,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 22,
     padding: theme.spacing.lg,
-    borderWidth: 1,
-    borderColor: colors.border,
-    shadowColor: colors.shadow,
-    shadowOpacity: 0.04,
-    shadowOffset: { width: 0, height: 4 },
-    shadowRadius: 10,
-    elevation: 2,
+    borderWidth: 1.5,
+    borderColor: '#CBD5E1',
+    shadowColor: '#0F172A',
+    shadowOpacity: 0.08,
+    shadowOffset: { width: 0, height: 6 },
+    shadowRadius: 14,
+    elevation: 3,
   },
   cardHeader: {
     marginBottom: 14,
@@ -394,8 +386,10 @@ const styles = StyleSheet.create({
   },
   navButton: {
     padding: 8,
-    borderRadius: 8,
-    backgroundColor: colors.surfaceSoft,
+    borderRadius: 10,
+    backgroundColor: '#F1F5F9',
+    borderWidth: 1,
+    borderColor: '#CBD5E1',
   },
   navButtonText: {
     fontSize: 14,
@@ -467,14 +461,16 @@ const styles = StyleSheet.create({
     gap: 8,
     marginTop: 14,
     paddingTop: 12,
-    borderTopWidth: 1,
-    borderTopColor: colors.border,
+    borderTopWidth: 1.5,
+    borderTopColor: '#E2E8F0',
   },
   durationPill: {
-    backgroundColor: colors.surfaceSoft,
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: 8,
+    backgroundColor: '#EEF4FF',
+    paddingHorizontal: 12,
+    paddingVertical: 5,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: '#C7D7FE',
   },
   durationPillText: {
     fontSize: 13,
@@ -487,11 +483,11 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   aiEstimateCard: {
-    backgroundColor: '#F5F7FF',
-    borderRadius: 16,
-    padding: 14,
-    borderWidth: 1,
-    borderColor: '#DDE5FF',
+    backgroundColor: '#F0F5FF',
+    borderRadius: 18,
+    padding: 16,
+    borderWidth: 1.5,
+    borderColor: '#BFDBFE',
     marginBottom: 16,
   },
   aiEstimateHeader: {
@@ -513,16 +509,21 @@ const styles = StyleSheet.create({
   aiBreakdownRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    gap: 8,
-    marginBottom: 8,
+    gap: 10,
+    marginBottom: 10,
   },
   aiBreakdownItem: {
     flex: 1,
-    backgroundColor: colors.surface,
-    borderRadius: 10,
-    padding: 8,
-    borderWidth: 1,
-    borderColor: '#E5EDFF',
+    backgroundColor: '#FFFFFF',
+    borderRadius: 12,
+    padding: 10,
+    borderWidth: 1.5,
+    borderColor: '#D8E2FD',
+    shadowColor: '#0F172A',
+    shadowOpacity: 0.03,
+    shadowOffset: { width: 0, height: 2 },
+    shadowRadius: 4,
+    elevation: 1,
   },
   aiBreakdownLabel: {
     fontSize: 11,
@@ -537,24 +538,30 @@ const styles = StyleSheet.create({
   },
   aiBreakdownDetailsText: {
     fontSize: 12,
-    color: colors.textMuted,
-    lineHeight: 16,
-    marginBottom: 10,
+    color: '#475569',
+    lineHeight: 17,
+    marginBottom: 12,
+    fontWeight: '500',
   },
   applyBudgetButton: {
     backgroundColor: colors.primary,
-    borderRadius: 10,
-    paddingVertical: 8,
+    borderRadius: 12,
+    paddingVertical: 10,
     paddingHorizontal: 12,
     alignItems: 'center',
+    shadowColor: colors.primaryDark,
+    shadowOpacity: 0.2,
+    shadowOffset: { width: 0, height: 3 },
+    shadowRadius: 6,
+    elevation: 2,
   },
   applyBudgetButtonText: {
     color: colors.white,
     fontSize: 13,
-    fontWeight: '700',
+    fontWeight: '800',
   },
   inputGroup: {
-    marginBottom: 14,
+    marginBottom: 16,
   },
   inputLabel: {
     fontSize: 14,
@@ -565,11 +572,11 @@ const styles = StyleSheet.create({
   currencyInputWrapper: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: colors.surfaceSoft,
-    borderRadius: 14,
-    borderWidth: 1,
-    borderColor: colors.border,
-    paddingHorizontal: 14,
+    backgroundColor: '#F8FAFC',
+    borderRadius: 16,
+    borderWidth: 1.5,
+    borderColor: '#CBD5E1',
+    paddingHorizontal: 16,
   },
   currencyInput: {
     flex: 1,
@@ -586,15 +593,15 @@ const styles = StyleSheet.create({
   disclaimerCard: {
     flexDirection: 'row',
     backgroundColor: '#FFFBEB',
-    borderRadius: 14,
-    padding: 12,
-    borderWidth: 1,
-    borderColor: '#FDE68A',
-    gap: 10,
+    borderRadius: 16,
+    padding: 14,
+    borderWidth: 1.5,
+    borderColor: '#FCD34D',
+    gap: 12,
     alignItems: 'flex-start',
   },
   disclaimerIcon: {
-    fontSize: 18,
+    fontSize: 20,
   },
   disclaimerTextContainer: {
     flex: 1,
@@ -608,7 +615,7 @@ const styles = StyleSheet.create({
   disclaimerBody: {
     fontSize: 12,
     color: '#78350F',
-    lineHeight: 17,
+    lineHeight: 18,
   },
   boldText: {
     fontWeight: '800',
