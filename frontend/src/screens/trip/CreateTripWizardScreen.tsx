@@ -16,19 +16,29 @@ import TripAccessibilityHealthStep from '../../components/trip/TripAccessibility
 import TripPreferencesPlacesStep from '../../components/trip/TripPreferencesPlacesStep';
 import TripPaceStep from '../../components/trip/TripPaceStep';
 import { fetchDestinationTravelInfo } from '../../api/destinations';
-import { DestinationTravelInfo, TripWizardData, TripPaceLevel, DayPaceConfig } from '../../types';
+import { generateTripItinerary } from '../../api/itinerary';
+import {
+  DestinationTravelInfo,
+  TripWizardData,
+  TripPaceLevel,
+  DayPaceConfig,
+  TripResponse,
+  GenerateTripRequest,
+} from '../../types';
 import { colors } from '../../theme/colors';
 import { theme } from '../../theme/theme';
 
 type CreateTripWizardScreenProps = {
   onCancel?: () => void;
   onComplete?: (formData: TripWizardData) => void;
+  onTripCreated?: (trip: TripResponse) => void;
   onNext?: (formData: TripWizardData) => void;
 };
 
 export default function CreateTripWizardScreen({
   onCancel,
   onComplete,
+  onTripCreated,
   onNext,
 }: CreateTripWizardScreenProps) {
   const totalSteps = 7;
@@ -63,6 +73,10 @@ export default function CreateTripWizardScreen({
   const [loadingError, setLoadingError] = useState<string | null>(null);
   const [lastFetchedDestination, setLastFetchedDestination] = useState('');
 
+  // Estado de Generación del Itinerario con IA
+  const [isGeneratingItinerary, setIsGeneratingItinerary] = useState(false);
+  const [generationError, setGenerationError] = useState<string | null>(null);
+
   const progress = useMemo(() => (currentStep / totalSteps) * 100, [currentStep]);
 
   // Validación para poder avanzar de paso
@@ -71,14 +85,12 @@ export default function CreateTripWizardScreen({
       return destination.trim().length > 0;
     }
     if (currentStep === 2) {
-      // Si el país exige pasaporte, es obligatorio indicar si se tiene o no
       if (countryInfo?.passport_required) {
         return hasPassport !== null;
       }
       return true;
     }
     if (currentStep === 3) {
-      // En el paso 3 se requiere tener fecha de inicio, fin y presupuesto > 0
       return (
         startDate !== null &&
         endDate !== null &&
@@ -87,10 +99,8 @@ export default function CreateTripWizardScreen({
       );
     }
     if (currentStep === 4) {
-      // En el paso 4 se debe indicar si tiene o no problemas de movilidad
       return hasMobilityIssues !== null;
     }
-    // Pasos 5, 6 y 7 siempre son válidos para avanzar
     return true;
   }, [
     currentStep,
@@ -135,7 +145,7 @@ export default function CreateTripWizardScreen({
   };
 
   const handleContinue = async () => {
-    if (!canContinue || isLoadingCountryInfo) {
+    if (!canContinue || isLoadingCountryInfo || isGeneratingItinerary) {
       return;
     }
 
@@ -151,13 +161,13 @@ export default function CreateTripWizardScreen({
       return;
     }
 
-    // Avanzar internamente en los pasos del wizard
+    // Avanzar internamente en los pasos del wizard (hasta el paso 6)
     if (currentStep < totalSteps) {
       setCurrentStep((step) => step + 1);
       return;
     }
 
-    // Al finalizar el último paso (Paso 7), emitir datos consolidados
+    // Al pulsar "Crear Viaje" en el Paso 7 -> LLAMAR A LA API DE GENERACIÓN CON IA
     const finalData: TripWizardData = {
       destination: cleanDest,
       countryInfo,
@@ -179,10 +189,47 @@ export default function CreateTripWizardScreen({
       dailyPace,
     };
 
-    if (onComplete) {
-      onComplete(finalData);
-    } else if (onNext) {
-      onNext(finalData);
+    setIsGeneratingItinerary(true);
+    setGenerationError(null);
+
+    try {
+      const requestPayload: GenerateTripRequest = {
+        destination: cleanDest,
+        country_name: countryInfo?.country_name,
+        origin_country: countryInfo?.origin_country,
+        start_date: startDate || '',
+        end_date: endDate || '',
+        total_days: totalDays,
+        total_nights: totalNights,
+        budget: budget || 0,
+        currency: countryInfo?.estimated_daily_cost?.currency || 'EUR',
+        has_mobility_issues: hasMobilityIssues,
+        health_conditions: healthConditions,
+        dietary_preferences: dietaryPreferences,
+        interests: selectedInterests,
+        custom_interests: customInterests,
+        specific_places: specificPlaces,
+        pace_type: paceType,
+        global_pace: globalPace,
+        daily_pace: dailyPace,
+      };
+
+      const createdTrip = await generateTripItinerary(requestPayload);
+
+      if (onTripCreated) {
+        onTripCreated(createdTrip);
+      } else if (onComplete) {
+        onComplete(finalData);
+      } else if (onNext) {
+        onNext(finalData);
+      }
+    } catch (err: any) {
+      console.error('Error al generar itinerario con IA:', err);
+      setGenerationError(
+        err?.message || 'Hubo un problema al generar el itinerario. Por favor, inténtalo de nuevo.'
+      );
+    } finally {
+      setIsGeneratingItinerary(false);
     }
   };
 
@@ -196,7 +243,31 @@ export default function CreateTripWizardScreen({
   };
 
   const renderStepContent = () => {
-    // Pantalla de carga mientras se obtienen los datos con la API de Gemini
+    // Pantalla de carga mientras se genera el itinerario con IA
+    if (isGeneratingItinerary) {
+      return (
+        <View style={styles.loadingContainer}>
+          <View style={styles.loadingCard}>
+            <View style={styles.spinnerWrapper}>
+              <ActivityIndicator size="large" color={colors.primary} />
+            </View>
+            <Text style={styles.loadingTitle}>Generando tu Itinerario Personalizado...</Text>
+            <Text style={styles.loadingSubtitle}>
+              Orquestando visitas optimizadas geográficamente para{' '}
+              <Text style={styles.highlightText}>"{countryInfo?.destination_city || destination}"</Text>
+            </Text>
+            <View style={styles.loadingBadgeContainer}>
+              <Text style={styles.loadingBadge}>🧠 Inteligencia Artificial </Text>
+              <Text style={styles.loadingBadge}>🕒 Comprobando días de cierre y horarios</Text>
+              <Text style={styles.loadingBadge}>🚶‍♂️ Rutas agrupadas por zonas cercanas</Text>
+              <Text style={styles.loadingBadge}>🗺️ Enlaces directos a Google Maps</Text>
+            </View>
+          </View>
+        </View>
+      );
+    }
+
+    // Pantalla de carga inicial de país
     if (isLoadingCountryInfo) {
       return (
         <View style={styles.loadingContainer}>
@@ -287,7 +358,7 @@ export default function CreateTripWizardScreen({
       );
     }
 
-    // Paso 2: Información del país y requisitos de viaje devueltos por Gemini
+    // Paso 2: Información del país
     if (currentStep === 2) {
       return (
         <View style={styles.stepContent}>
@@ -377,6 +448,9 @@ export default function CreateTripWizardScreen({
       return (
         <View style={styles.stepContent}>
           <Text style={styles.title}>Ritmo e Intensidad</Text>
+          <Text style={styles.subtitle}>
+            Configura el nivel de actividad y tiempo libre para tus {totalDays} {totalDays === 1 ? 'día' : 'días'} de viaje.
+          </Text>
 
           <TripPaceStep
             startDate={startDate}
@@ -400,6 +474,13 @@ export default function CreateTripWizardScreen({
         <Text style={styles.subtitle}>
           Revisa todos los detalles configurados antes de generar tu itinerario completo para {countryInfo?.destination_city || destination}.
         </Text>
+
+        {generationError && (
+          <View style={styles.errorContainer}>
+            <Text style={styles.errorTitle}>⚠️ No pudimos generar el itinerario</Text>
+            <Text style={styles.errorMessage}>{generationError}</Text>
+          </View>
+        )}
 
         <View style={styles.summaryCard}>
           <View style={styles.summaryRow}>
@@ -536,14 +617,18 @@ export default function CreateTripWizardScreen({
     }
     if (currentStep === 5) return 'Continuar a Ritmo';
     if (currentStep === 6) return 'Ver Resumen';
-    return 'Crear Viaje';
+    return isGeneratingItinerary ? 'Generando...' : 'Crear Viaje y Generar Itinerario';
   };
 
   return (
     <SafeAreaView style={styles.safeArea}>
       <View style={styles.container}>
         <View style={styles.headerRow}>
-          <Pressable onPress={handleBack} style={styles.cancelButton} disabled={isLoadingCountryInfo}>
+          <Pressable
+            onPress={handleBack}
+            style={styles.cancelButton}
+            disabled={isLoadingCountryInfo || isGeneratingItinerary}
+          >
             <Text style={styles.cancelText}>
               {currentStep > 1 ? '← Atrás' : 'Cancelar'}
             </Text>
@@ -558,7 +643,7 @@ export default function CreateTripWizardScreen({
 
         {renderStepContent()}
 
-        {!isLoadingCountryInfo && (
+        {!isLoadingCountryInfo && !isGeneratingItinerary && (
           <View style={styles.buttonRow}>
             {currentStep === 2 && (
               <Pressable onPress={() => setCurrentStep(1)} style={styles.secondaryButton}>
@@ -598,11 +683,11 @@ export default function CreateTripWizardScreen({
 
             <Pressable
               onPress={handleContinue}
-              disabled={!canContinue || isLoadingCountryInfo}
+              disabled={!canContinue || isLoadingCountryInfo || isGeneratingItinerary}
               style={[
                 styles.primaryButton,
                 currentStep > 1 && styles.primaryButtonFlex,
-                (!canContinue || isLoadingCountryInfo) && styles.primaryButtonDisabled,
+                (!canContinue || isLoadingCountryInfo || isGeneratingItinerary) && styles.primaryButtonDisabled,
               ]}
             >
               <Text style={styles.primaryButtonText}>{getPrimaryButtonText()}</Text>

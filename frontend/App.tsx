@@ -5,20 +5,20 @@ import { StatusBar } from 'expo-status-bar';
 import { getCurrentUser, isAuthenticated, logoutUser, type UserProfile } from './src/api/auth';
 import AuthScreen from './src/screens/auth/AuthScreen';
 import CreateTripWizardScreen from './src/screens/trip/CreateTripWizardScreen';
+import ItineraryDetailScreen from './src/screens/itinerary/ItineraryDetailScreen';
 import ProfileScreen from './src/screens/profile/ProfileScreen';
 import MyTripsScreen from './src/screens/trips/MyTripsScreen';
 import { colors } from './src/theme/colors';
 import { theme } from './src/theme/theme';
-
-import { DestinationTravelInfo, TripWizardData } from './src/types';
+import { TripResponse } from './src/types';
 
 type ActiveTab = 'profile' | 'trips';
 
 function AuthenticatedApp({ onLogout }: { onLogout: () => void }) {
-  const [activeTab, setActiveTab] = useState<ActiveTab>('profile');
+  const [activeTab, setActiveTab] = useState<ActiveTab>('trips');
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [showCreateTripWizard, setShowCreateTripWizard] = useState(false);
-  const [tripDraft, setTripDraft] = useState<TripWizardData | null>(null);
+  const [activeTrip, setActiveTrip] = useState<TripResponse | null>(null);
 
   useEffect(() => {
     const loadUser = async () => {
@@ -31,13 +31,24 @@ function AuthenticatedApp({ onLogout }: { onLogout: () => void }) {
     loadUser();
   }, []);
 
+  // Pantalla de Detalle de Itinerario generado
+  if (activeTrip) {
+    return (
+      <ItineraryDetailScreen
+        trip={activeTrip}
+        onBack={() => setActiveTrip(null)}
+      />
+    );
+  }
+
+  // Asistente de Creación de Viaje en 7 Pasos
   if (showCreateTripWizard) {
     return (
       <CreateTripWizardScreen
         onCancel={() => setShowCreateTripWizard(false)}
-        onComplete={(finalData) => {
-          setTripDraft(finalData);
+        onTripCreated={(createdTrip) => {
           setShowCreateTripWizard(false);
+          setActiveTrip(createdTrip);
         }}
       />
     );
@@ -47,19 +58,6 @@ function AuthenticatedApp({ onLogout }: { onLogout: () => void }) {
     <View style={styles.appShell}>
       <View style={styles.tabBar}>
         <Pressable
-          onPress={() => setActiveTab('profile')}
-          style={({ pressed }) => [
-            styles.tab,
-            activeTab === 'profile' && styles.tabActive,
-            pressed && styles.tabPressed,
-          ]}
-        >
-          <Text style={[styles.tabText, activeTab === 'profile' && styles.tabTextActive]}>
-            Perfil
-          </Text>
-        </Pressable>
-
-        <Pressable
           onPress={() => setActiveTab('trips')}
           style={({ pressed }) => [
             styles.tab,
@@ -68,21 +66,35 @@ function AuthenticatedApp({ onLogout }: { onLogout: () => void }) {
           ]}
         >
           <Text style={[styles.tabText, activeTab === 'trips' && styles.tabTextActive]}>
-            Viajes
+            ✈️ Mis Viajes
+          </Text>
+        </Pressable>
+
+        <Pressable
+          onPress={() => setActiveTab('profile')}
+          style={({ pressed }) => [
+            styles.tab,
+            activeTab === 'profile' && styles.tabActive,
+            pressed && styles.tabPressed,
+          ]}
+        >
+          <Text style={[styles.tabText, activeTab === 'profile' && styles.tabTextActive]}>
+            👤 Perfil
           </Text>
         </Pressable>
       </View>
 
-      {activeTab === 'profile' ? (
+      {activeTab === 'trips' ? (
+        <MyTripsScreen
+          onLogout={onLogout}
+          onStartTrip={() => setShowCreateTripWizard(true)}
+          onSelectTrip={(trip) => setActiveTrip(trip)}
+        />
+      ) : (
         <ProfileScreen
           user={profile ?? undefined}
           onProfileUpdated={setProfile}
           onLogout={onLogout}
-        />
-      ) : (
-        <MyTripsScreen
-          onLogout={onLogout}
-          onStartTrip={() => setShowCreateTripWizard(true)}
         />
       )}
     </View>
@@ -133,7 +145,7 @@ export default function App() {
       ) : (
         <AuthScreen onLoginSuccess={() => setAuthenticated(true)} />
       )}
-      <StatusBar style="light" />
+      <StatusBar style="dark" />
     </>
   );
 }
@@ -141,15 +153,15 @@ export default function App() {
 const styles = StyleSheet.create({
   appShell: {
     flex: 1,
-    backgroundColor: colors.background,
+    backgroundColor: '#EDF1F7',
   },
   tabBar: {
     flexDirection: 'row',
-    backgroundColor: colors.surface,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.border,
+    backgroundColor: '#FFFFFF',
+    borderBottomWidth: 1.5,
+    borderBottomColor: '#CBD5E1',
     paddingHorizontal: theme.spacing.lg,
-    paddingTop: theme.spacing.lg,
+    paddingTop: theme.spacing.xl,
     paddingBottom: theme.spacing.md,
     gap: 8,
   },
@@ -159,10 +171,13 @@ const styles = StyleSheet.create({
     borderRadius: 14,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: colors.surfaceSoft,
+    backgroundColor: '#F1F5F9',
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
   },
   tabActive: {
     backgroundColor: colors.primary,
+    borderColor: colors.primaryDark,
   },
   tabPressed: {
     opacity: 0.9,
