@@ -143,7 +143,7 @@ export default function TripPreferencesPlacesStep({
       {/* SECCIÓN 1: CATEGORÍAS DE INTERÉS */}
       <View style={styles.card}>
         <View style={styles.cardHeader}>
-          <Text style={styles.cardTitle}>🎯 ¿Qué te gusta hacer en tus viajes?</Text>
+          <Text style={styles.cardTitle}>🎯 ¿Qué te gusta hacer en tus viajes? (Opcional)</Text>
           <Text style={styles.cardSubtitle}>
             Selecciona las temáticas y actividades que más te interesan para tu estancia en {cityName}.
           </Text>
@@ -282,7 +282,7 @@ export default function TripPreferencesPlacesStep({
       {/* SECCIÓN 2: LUGARES O MONUMENTOS ESPECÍFICOS */}
       <View style={styles.card}>
         <View style={styles.cardHeader}>
-          <Text style={styles.cardTitle}>📍 Lugares específicos que quieras visitar</Text>
+          <Text style={styles.cardTitle}>📍 Lugares específicos que quieras visitar (Opcional)</Text>
           <Text style={styles.cardSubtitle}>
             ¿Hay algún monumento, museo o rincón concreto que no te quieras perder en {cityName}?
             El asistente verificará con IA si pertenece a la ciudad antes de añadirlo.
