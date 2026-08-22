@@ -50,7 +50,7 @@ export default function TripAccessibilityHealthStep({
 
   // Manejo de Condiciones de Salud
   const handleAddHealthCondition = (conditionText?: string) => {
-    const textToAdd = (conditionText || newHealthInput).trim();
+    const textToAdd = (conditionText || newHealthInput).trim().slice(0, 35);
     if (!textToAdd) return;
 
     if (!healthConditions.some((c) => c.toLowerCase() === textToAdd.toLowerCase())) {
@@ -76,7 +76,7 @@ export default function TripAccessibilityHealthStep({
   };
 
   const handleAddCustomDiet = () => {
-    const textToAdd = newDietInput.trim();
+    const textToAdd = newDietInput.trim().slice(0, 35);
     if (!textToAdd) return;
 
     if (!dietaryPreferences.some((d) => d.toLowerCase() === textToAdd.toLowerCase())) {
@@ -153,33 +153,47 @@ export default function TripAccessibilityHealthStep({
       {/* SECCIÓN 2: CONDICIONES DE SALUD */}
       <View style={styles.card}>
         <View style={styles.cardHeader}>
-          <Text style={styles.cardTitle}>🩺 Salud y Medicación</Text>
+          <Text style={styles.cardTitle}>🩺 Salud y Medicación (OPCIONAL) </Text>
           <Text style={styles.cardSubtitle}>
-            Indica si tienes alguna condición médica o alerta de salud a tener en cuenta (opcional).
+            Indica si tienes alguna condición médica o alerta de salud a tener en cuenta.
           </Text>
         </View>
 
-        {/* Input para escribir condición a mano */}
-        <View style={styles.inputActionRow}>
-          <TextInput
-            style={styles.textInput}
-            placeholder="Ej. Asma, Diabetes, Alergia a picaduras..."
-            placeholderTextColor={colors.textMuted}
-            value={newHealthInput}
-            onChangeText={setNewHealthInput}
-            onSubmitEditing={() => handleAddHealthCondition()}
-            returnKeyType="done"
-          />
-          <Pressable
-            onPress={() => handleAddHealthCondition()}
-            disabled={!newHealthInput.trim()}
-            style={[
-              styles.addButton,
-              !newHealthInput.trim() && styles.addButtonDisabled,
-            ]}
-          >
-            <Text style={styles.addButtonText}>+ Añadir</Text>
-          </Pressable>
+        {/* Input para escribir condición a mano con límite de 35 caracteres */}
+        <View style={styles.inputContainerWithCounter}>
+          <View style={styles.inputActionRow}>
+            <TextInput
+              style={styles.textInput}
+              placeholder="Ej. Asma, Diabetes, Alergia..."
+              placeholderTextColor={colors.textMuted}
+              value={newHealthInput}
+              onChangeText={setNewHealthInput}
+              onSubmitEditing={() => handleAddHealthCondition()}
+              returnKeyType="done"
+              maxLength={35}
+            />
+            <Pressable
+              onPress={() => handleAddHealthCondition()}
+              disabled={!newHealthInput.trim()}
+              style={[
+                styles.addButton,
+                !newHealthInput.trim() && styles.addButtonDisabled,
+              ]}
+            >
+              <Text style={styles.addButtonText}>+ Añadir</Text>
+            </Pressable>
+          </View>
+          <View style={styles.counterRow}>
+            <Text style={styles.charLimitNotice}>Máximo 35 caracteres</Text>
+            <Text
+              style={[
+                styles.charCounterText,
+                newHealthInput.length >= 35 && styles.charCounterLimit,
+              ]}
+            >
+              {newHealthInput.length}/35
+            </Text>
+          </View>
         </View>
 
         {/* Sugerencias rápidas */}
@@ -221,7 +235,7 @@ export default function TripAccessibilityHealthStep({
             <View style={styles.chipsWrap}>
               {healthConditions.map((item, index) => (
                 <View key={index} style={styles.activeTag}>
-                  <Text style={styles.activeTagText}>🩺 {item}</Text>
+                  <Text style={styles.activeTagText}> {item}</Text>
                   <Pressable
                     onPress={() => handleRemoveHealthCondition(index)}
                     style={styles.removeTagBtn}
@@ -240,7 +254,7 @@ export default function TripAccessibilityHealthStep({
       {/* SECCIÓN 3: PREFERENCIAS DIETÉTICAS */}
       <View style={styles.card}>
         <View style={styles.cardHeader}>
-          <Text style={styles.cardTitle}>🥗 Dieta y Preferencias Alimentarias</Text>
+          <Text style={styles.cardTitle}>🥗 Dieta y Preferencias Alimentarias (OPCIONAL)</Text>
           <Text style={styles.cardSubtitle}>
             Selecciona tus dietas o añade alergias e intolerancias para adaptar los restaurantes recomendados.
           </Text>
@@ -274,27 +288,41 @@ export default function TripAccessibilityHealthStep({
           })}
         </View>
 
-        {/* Input para añadir otra dieta / alergia a mano */}
-        <View style={[styles.inputActionRow, { marginTop: 14 }]}>
-          <TextInput
-            style={styles.textInput}
-            placeholder="Otra dieta o alergia (ej. Sin frutos secos)..."
-            placeholderTextColor={colors.textMuted}
-            value={newDietInput}
-            onChangeText={setNewDietInput}
-            onSubmitEditing={handleAddCustomDiet}
-            returnKeyType="done"
-          />
-          <Pressable
-            onPress={handleAddCustomDiet}
-            disabled={!newDietInput.trim()}
-            style={[
-              styles.addButton,
-              !newDietInput.trim() && styles.addButtonDisabled,
-            ]}
-          >
-            <Text style={styles.addButtonText}>+ Añadir</Text>
-          </Pressable>
+        {/* Input para añadir otra dieta / alergia a mano con límite de 35 caracteres */}
+        <View style={[styles.inputContainerWithCounter, { marginTop: 14 }]}>
+          <View style={styles.inputActionRow}>
+            <TextInput
+              style={styles.textInput}
+              placeholder="Otra dieta o alergia (ej. Sin nueces)..."
+              placeholderTextColor={colors.textMuted}
+              value={newDietInput}
+              onChangeText={setNewDietInput}
+              onSubmitEditing={handleAddCustomDiet}
+              returnKeyType="done"
+              maxLength={35}
+            />
+            <Pressable
+              onPress={handleAddCustomDiet}
+              disabled={!newDietInput.trim()}
+              style={[
+                styles.addButton,
+                !newDietInput.trim() && styles.addButtonDisabled,
+              ]}
+            >
+              <Text style={styles.addButtonText}>+ Añadir</Text>
+            </Pressable>
+          </View>
+          <View style={styles.counterRow}>
+            <Text style={styles.charLimitNotice}>Máximo 35 caracteres</Text>
+            <Text
+              style={[
+                styles.charCounterText,
+                newDietInput.length >= 35 && styles.charCounterLimit,
+              ]}
+            >
+              {newDietInput.length}/35
+            </Text>
+          </View>
         </View>
 
         {/* Lista completa de dietas y alergias seleccionadas */}
@@ -304,7 +332,7 @@ export default function TripAccessibilityHealthStep({
             <View style={styles.chipsWrap}>
               {dietaryPreferences.map((dietItem, index) => (
                 <View key={index} style={styles.activeDietTag}>
-                  <Text style={styles.activeDietTagText}>🍽️ {dietItem}</Text>
+                  <Text style={styles.activeDietTagText}> {dietItem}</Text>
                   <Pressable
                     onPress={() => handleRemoveDiet(index)}
                     style={styles.removeTagBtn}
@@ -577,5 +605,29 @@ const styles = StyleSheet.create({
     color: colors.textMuted,
     fontStyle: 'italic',
     marginTop: 8,
+  },
+  inputContainerWithCounter: {
+    width: '100%',
+  },
+  counterRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginTop: 4,
+    paddingHorizontal: 4,
+  },
+  charLimitNotice: {
+    fontSize: 11,
+    color: colors.textMuted,
+    fontWeight: '500',
+  },
+  charCounterText: {
+    fontSize: 11,
+    color: colors.textMuted,
+    fontWeight: '700',
+  },
+  charCounterLimit: {
+    color: '#D97706',
+    fontWeight: '800',
   },
 });
