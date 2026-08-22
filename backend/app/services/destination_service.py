@@ -7,7 +7,7 @@ from typing import Optional, Any, Tuple
 from google import genai
 from google.genai import types
 from app.core.config import settings
-from app.models.destination import DestinationInfoResponse, EstimatedDailyCost
+from app.models.destination import DestinationInfoResponse, EstimatedDailyCost, ValidatePlaceResponse
 from app.utils.countries import get_country_iso_code, get_flag_image_url
 
 logger = logging.getLogger(__name__)
@@ -684,4 +684,92 @@ Determina con precisión el país al que pertenece dicho destino y responde ÚNI
             passport_authority_name=pass_auth,
             passport_instructions=pass_inst,
             estimated_daily_cost=fallback_cost
+        )
+
+    @classmethod
+    async def validate_place_location(
+        cls,
+        place_name: str,
+        destination_city: str,
+        destination_country: Optional[str] = None
+    ) -> ValidatePlaceResponse:
+        """
+        Valida mediante IA si un monumento, atracción o lugar específico se encuentra
+        dentro de la ciudad del viaje o en su área metropolitana directa.
+        """
+        clean_place = place_name.strip()
+        clean_city = destination_city.strip()
+        country_context = f", {destination_country.strip()}" if destination_country else ""
+
+        api_key = settings.GEMINI_API_KEY
+        if not api_key:
+            return ValidatePlaceResponse(
+                is_valid=True,
+                place_name=clean_place,
+                actual_location=f"{clean_city}{country_context}",
+                message=f"Lugar '{clean_place}' aceptado para tu visita a {clean_city}."
+            )
+
+        client = genai.Client(api_key=api_key)
+
+        prompt = f"""
+Eres un asistente experto en geografía, turismo y monumentos internacionales.
+Analiza con rigor si el lugar, monumento, atracción turística o punto de interés: "{clean_place}" se encuentra ubicado DENTRO o en el área metropolitana directa de la ciudad destino: "{clean_city}"{country_context}.
+
+Ejemplos:
+- Si el destino es "París" y el lugar es "Torre Eiffel" -> is_valid: true
+- Si el destino es "Madrid" y el lugar es "Torre Eiffel" -> is_valid: false, actual_location: "París, Francia"
+- Si el destino es "Roma" y el lugar es "Coliseo" -> is_valid: true
+- Si el destino es "Barcelona" y el lugar es "Alhambra" -> is_valid: false, actual_location: "Granada, España"
+
+Responde ÚNICAMENTE con un objeto JSON válido con la siguiente estructura exacta:
+{{
+  "is_valid": true o false,
+  "place_name": "Nombre corregido y oficial del lugar en español",
+  "actual_location": "Ciudad y País real donde se encuentra ubicado verdaderamente (ej. 'París, Francia')",
+  "message": "Explicación concisa en español. Si is_valid es true: confirma que '{clean_place}' está en {clean_city} y se incluirá en el viaje. Si is_valid es false: indica amablemente que '{clean_place}' se encuentra en [actual_location] y no en {clean_city}."
+}}
+"""
+
+        for model_name in AVAILABLE_MODELS:
+            try:
+                response = client.models.generate_content(
+                    model=model_name,
+                    contents=prompt,
+                    config=types.GenerateContentConfig(
+                        response_mime_type="application/json",
+                        temperature=0.1
+                    )
+                )
+
+                if response and response.text:
+                    clean_text = cls._clean_json_text(response.text)
+                    data = json.loads(clean_text)
+
+                    is_valid = bool(data.get("is_valid", False))
+                    p_name = str(data.get("place_name", clean_place)).strip()
+                    loc = str(data.get("actual_location", "")).strip() or None
+                    msg = str(data.get("message", ""))
+
+                    if not msg:
+                        if is_valid:
+                            msg = f"'{p_name}' es un lugar destacado en {clean_city} y se incluirá en tu viaje."
+                        else:
+                            msg = f"'{p_name}' se encuentra en {loc or 'otra ubicación'} y no en {clean_city}."
+
+                    return ValidatePlaceResponse(
+                        is_valid=is_valid,
+                        place_name=p_name,
+                        actual_location=loc,
+                        message=msg
+                    )
+            except Exception as e:
+                logger.warning(f"Error con modelo {model_name} al validar lugar '{clean_place}': {e}")
+                continue
+
+        return ValidatePlaceResponse(
+            is_valid=True,
+            place_name=clean_place,
+            actual_location=f"{clean_city}{country_context}",
+            message=f"Lugar '{clean_place}' aceptado para tu visita a {clean_city}."
         )

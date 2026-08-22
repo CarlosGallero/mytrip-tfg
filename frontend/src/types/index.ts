@@ -26,6 +26,14 @@ export interface DestinationTravelInfo {
   estimated_daily_cost?: EstimatedDailyCost | null;
 }
 
+export type TripPaceLevel = 'relaxed' | 'moderate' | 'intense';
+
+export interface DayPaceConfig {
+  dayNumber: number;
+  dateStr: string;
+  pace: TripPaceLevel;
+}
+
 export interface TripWizardData {
   destination: string;
   countryInfo?: DestinationTravelInfo | null;
@@ -39,4 +47,10 @@ export interface TripWizardData {
   hasMobilityIssues?: boolean | null;
   healthConditions?: string[];
   dietaryPreferences?: string[];
+  interests?: string[];
+  customInterests?: string[];
+  specificPlaces?: string[];
+  paceType?: 'global' | 'custom_days';
+  globalPace?: TripPaceLevel;
+  dailyPace?: DayPaceConfig[];
 }

@@ -13,8 +13,10 @@ import CityAutocomplete from '../../components/CityAutocomplete';
 import CountryTravelInfoCard from '../../components/trip/CountryTravelInfoCard';
 import TripDateBudgetStep from '../../components/trip/TripDateBudgetStep';
 import TripAccessibilityHealthStep from '../../components/trip/TripAccessibilityHealthStep';
+import TripPreferencesPlacesStep from '../../components/trip/TripPreferencesPlacesStep';
+import TripPaceStep from '../../components/trip/TripPaceStep';
 import { fetchDestinationTravelInfo } from '../../api/destinations';
-import { DestinationTravelInfo, TripWizardData } from '../../types';
+import { DestinationTravelInfo, TripWizardData, TripPaceLevel, DayPaceConfig } from '../../types';
 import { colors } from '../../theme/colors';
 import { theme } from '../../theme/theme';
 
@@ -29,7 +31,7 @@ export default function CreateTripWizardScreen({
   onComplete,
   onNext,
 }: CreateTripWizardScreenProps) {
-  const totalSteps = 5;
+  const totalSteps = 7;
   const [currentStep, setCurrentStep] = useState(1);
   const [destination, setDestination] = useState('');
   const [countryInfo, setCountryInfo] = useState<DestinationTravelInfo | null>(null);
@@ -46,6 +48,16 @@ export default function CreateTripWizardScreen({
   const [hasMobilityIssues, setHasMobilityIssues] = useState<boolean | null>(null);
   const [healthConditions, setHealthConditions] = useState<string[]>([]);
   const [dietaryPreferences, setDietaryPreferences] = useState<string[]>([]);
+
+  // Paso 5: Preferencias Temáticas y Lugares Específicos
+  const [selectedInterests, setSelectedInterests] = useState<string[]>([]);
+  const [customInterests, setCustomInterests] = useState<string[]>([]);
+  const [specificPlaces, setSpecificPlaces] = useState<string[]>([]);
+
+  // Paso 6: Ritmo de Viaje
+  const [paceType, setPaceType] = useState<'global' | 'custom_days'>('global');
+  const [globalPace, setGlobalPace] = useState<TripPaceLevel>('moderate');
+  const [dailyPace, setDailyPace] = useState<DayPaceConfig[]>([]);
 
   const [isLoadingCountryInfo, setIsLoadingCountryInfo] = useState(false);
   const [loadingError, setLoadingError] = useState<string | null>(null);
@@ -78,6 +90,7 @@ export default function CreateTripWizardScreen({
       // En el paso 4 se debe indicar si tiene o no problemas de movilidad
       return hasMobilityIssues !== null;
     }
+    // Pasos 5, 6 y 7 siempre son válidos para avanzar
     return true;
   }, [
     currentStep,
@@ -144,7 +157,7 @@ export default function CreateTripWizardScreen({
       return;
     }
 
-    // Al finalizar el último paso (Paso 5), emitir datos consolidados
+    // Al finalizar el último paso (Paso 7), emitir datos consolidados
     const finalData: TripWizardData = {
       destination: cleanDest,
       countryInfo,
@@ -158,6 +171,12 @@ export default function CreateTripWizardScreen({
       hasMobilityIssues,
       healthConditions,
       dietaryPreferences,
+      interests: selectedInterests,
+      customInterests,
+      specificPlaces,
+      paceType,
+      globalPace,
+      dailyPace,
     };
 
     if (onComplete) {
@@ -314,9 +333,9 @@ export default function CreateTripWizardScreen({
     if (currentStep === 4) {
       return (
         <View style={styles.stepContent}>
-          <Text style={styles.title}>Accesibilidad y Preferencias</Text>
+          <Text style={styles.title}>Accesibilidad y Salud</Text>
           <Text style={styles.subtitle}>
-            Personaliza el viaje según tus necesidades físicas, de salud y alimentarias.
+            Personaliza el viaje según tus necesidades físicas, médicas y alimentarias.
           </Text>
 
           <TripAccessibilityHealthStep
@@ -331,12 +350,55 @@ export default function CreateTripWizardScreen({
       );
     }
 
-    // Paso 5: Resumen final
+    // Paso 5: Preferencias Temáticas y Lugares Específicos
+    if (currentStep === 5) {
+      return (
+        <View style={styles.stepContent}>
+          <Text style={styles.title}>Intereses y Monumentos</Text>
+          <Text style={styles.subtitle}>
+            Elige las temáticas que más te apasionan y fija monumentos imprescindibles para tu visita a {countryInfo?.destination_city || destination}.
+          </Text>
+
+          <TripPreferencesPlacesStep
+            countryInfo={countryInfo}
+            selectedInterests={selectedInterests}
+            customInterests={customInterests}
+            specificPlaces={specificPlaces}
+            onInterestsChange={setSelectedInterests}
+            onCustomInterestsChange={setCustomInterests}
+            onSpecificPlacesChange={setSpecificPlaces}
+          />
+        </View>
+      );
+    }
+
+    // Paso 6: Ritmo de Viaje
+    if (currentStep === 6) {
+      return (
+        <View style={styles.stepContent}>
+          <Text style={styles.title}>Ritmo e Intensidad</Text>
+
+          <TripPaceStep
+            startDate={startDate}
+            endDate={endDate}
+            totalDays={totalDays}
+            paceType={paceType}
+            globalPace={globalPace}
+            dailyPace={dailyPace}
+            onPaceTypeChange={setPaceType}
+            onGlobalPaceChange={setGlobalPace}
+            onDailyPaceChange={setDailyPace}
+          />
+        </View>
+      );
+    }
+
+    // Paso 7: Resumen Final Consolidado
     return (
       <ScrollView style={styles.stepContent} showsVerticalScrollIndicator={false}>
         <Text style={styles.title}>Resumen del Viaje</Text>
         <Text style={styles.subtitle}>
-          Revisa todos los detalles configurados antes de generar tu itinerario para {countryInfo?.destination_city || destination}.
+          Revisa todos los detalles configurados antes de generar tu itinerario completo para {countryInfo?.destination_city || destination}.
         </Text>
 
         <View style={styles.summaryCard}>
@@ -358,7 +420,7 @@ export default function CreateTripWizardScreen({
           </View>
 
           <View style={styles.summaryRow}>
-            <Text style={styles.summaryLabel}>Presupuesto (Comidas y ocio):</Text>
+            <Text style={styles.summaryLabel}>Presupuesto comidas y ocio:</Text>
             <Text style={styles.summaryValue}>
               {budget} {countryInfo?.estimated_daily_cost?.currency || 'EUR'}
             </Text>
@@ -367,10 +429,59 @@ export default function CreateTripWizardScreen({
           <View style={styles.summaryRow}>
             <Text style={styles.summaryLabel}>Accesibilidad:</Text>
             <Text style={styles.summaryValue}>
-              {hasMobilityIssues ? '♿ Rutas 100% Adaptadas' : '🚶‍♂️ Estándar (sin restricciones)'}
+              {hasMobilityIssues ? '♿ Rutas 100% Adaptadas' : '🚶‍♂️ Estándar'}
             </Text>
           </View>
 
+          <View style={styles.summaryRow}>
+            <Text style={styles.summaryLabel}>Ritmo del viaje:</Text>
+            <Text style={styles.summaryValue}>
+              {paceType === 'global'
+                ? globalPace === 'relaxed'
+                  ? '🌴 Relajado'
+                  : globalPace === 'moderate'
+                  ? '🚶‍♂️ Medio'
+                  : '⚡ A full'
+                : '📅 Personalizado por días'}
+            </Text>
+          </View>
+
+          {/* Preferencias temáticas */}
+          <View style={styles.summarySectionBlock}>
+            <Text style={styles.summarySectionTitle}>Temáticas e intereses:</Text>
+            {selectedInterests.length > 0 || customInterests.length > 0 ? (
+              <View style={styles.summaryBadgesWrap}>
+                {selectedInterests.map((interest, idx) => (
+                  <View key={`sel-${idx}`} style={styles.summaryInterestBadge}>
+                    <Text style={styles.summaryInterestBadgeText}>{interest}</Text>
+                  </View>
+                ))}
+                {customInterests.map((cInterest, idx) => (
+                  <View key={`cust-${idx}`} style={styles.summaryInterestBadge}>
+                    <Text style={styles.summaryInterestBadgeText}>✨ {cInterest}</Text>
+                  </View>
+                ))}
+              </View>
+            ) : (
+              <Text style={styles.summaryMutedText}>Intereses generales variados</Text>
+            )}
+          </View>
+
+          {/* Lugares específicos */}
+          {specificPlaces.length > 0 && (
+            <View style={styles.summarySectionBlock}>
+              <Text style={styles.summarySectionTitle}>Monumentos y lugares fijados:</Text>
+              <View style={styles.summaryBadgesWrap}>
+                {specificPlaces.map((place, idx) => (
+                  <View key={idx} style={styles.summaryPlaceBadge}>
+                    <Text style={styles.summaryPlaceBadgeText}>📌 {place}</Text>
+                  </View>
+                ))}
+              </View>
+            </View>
+          )}
+
+          {/* Condiciones de salud */}
           <View style={styles.summarySectionBlock}>
             <Text style={styles.summarySectionTitle}>Condiciones de salud:</Text>
             {healthConditions.length > 0 ? (
@@ -386,8 +497,9 @@ export default function CreateTripWizardScreen({
             )}
           </View>
 
+          {/* Preferencias dietéticas */}
           <View style={styles.summarySectionBlock}>
-            <Text style={styles.summarySectionTitle}>Preferencias dietéticas y alergias:</Text>
+            <Text style={styles.summarySectionTitle}>Dietas y alergias:</Text>
             {dietaryPreferences.length > 0 ? (
               <View style={styles.summaryBadgesWrap}>
                 {dietaryPreferences.map((dp, idx) => (
@@ -406,9 +518,7 @@ export default function CreateTripWizardScreen({
   };
 
   const getPrimaryButtonText = () => {
-    if (currentStep === 1) {
-      return 'Consultar y Continuar';
-    }
+    if (currentStep === 1) return 'Consultar y Continuar';
     if (currentStep === 2) {
       if (countryInfo?.passport_required && hasPassport === null) {
         return 'Indica si tienes pasaporte';
@@ -416,20 +526,16 @@ export default function CreateTripWizardScreen({
       return 'Continuar';
     }
     if (currentStep === 3) {
-      if (!startDate || !endDate) {
-        return 'Selecciona las fechas';
-      }
-      if (!budget || budget <= 0) {
-        return 'Indica tu presupuesto';
-      }
+      if (!startDate || !endDate) return 'Selecciona las fechas';
+      if (!budget || budget <= 0) return 'Indica tu presupuesto';
       return 'Continuar';
     }
     if (currentStep === 4) {
-      if (hasMobilityIssues === null) {
-        return 'Indica tu movilidad';
-      }
-      return 'Continuar al Resumen';
+      if (hasMobilityIssues === null) return 'Indica tu movilidad';
+      return 'Continuar a Intereses';
     }
+    if (currentStep === 5) return 'Continuar a Ritmo';
+    if (currentStep === 6) return 'Ver Resumen';
     return 'Crear Viaje';
   };
 
@@ -455,38 +561,38 @@ export default function CreateTripWizardScreen({
         {!isLoadingCountryInfo && (
           <View style={styles.buttonRow}>
             {currentStep === 2 && (
-              <Pressable
-                onPress={() => setCurrentStep(1)}
-                style={styles.secondaryButton}
-              >
+              <Pressable onPress={() => setCurrentStep(1)} style={styles.secondaryButton}>
                 <Text style={styles.secondaryButtonText}>Cambiar ciudad</Text>
               </Pressable>
             )}
 
             {currentStep === 3 && (
-              <Pressable
-                onPress={() => setCurrentStep(2)}
-                style={styles.secondaryButton}
-              >
+              <Pressable onPress={() => setCurrentStep(2)} style={styles.secondaryButton}>
                 <Text style={styles.secondaryButtonText}>Ver requisitos</Text>
               </Pressable>
             )}
 
             {currentStep === 4 && (
-              <Pressable
-                onPress={() => setCurrentStep(3)}
-                style={styles.secondaryButton}
-              >
+              <Pressable onPress={() => setCurrentStep(3)} style={styles.secondaryButton}>
                 <Text style={styles.secondaryButtonText}>Modificar fechas</Text>
               </Pressable>
             )}
 
             {currentStep === 5 && (
-              <Pressable
-                onPress={() => setCurrentStep(4)}
-                style={styles.secondaryButton}
-              >
-                <Text style={styles.secondaryButtonText}>Editar salud/dieta</Text>
+              <Pressable onPress={() => setCurrentStep(4)} style={styles.secondaryButton}>
+                <Text style={styles.secondaryButtonText}>Editar salud</Text>
+              </Pressable>
+            )}
+
+            {currentStep === 6 && (
+              <Pressable onPress={() => setCurrentStep(5)} style={styles.secondaryButton}>
+                <Text style={styles.secondaryButtonText}>Editar intereses</Text>
+              </Pressable>
+            )}
+
+            {currentStep === 7 && (
+              <Pressable onPress={() => setCurrentStep(6)} style={styles.secondaryButton}>
+                <Text style={styles.secondaryButtonText}>Modificar ritmo</Text>
               </Pressable>
             )}
 
@@ -686,6 +792,7 @@ const styles = StyleSheet.create({
     shadowRadius: 14,
     elevation: 3,
     gap: 14,
+    marginBottom: 20,
   },
   summaryRow: {
     flexDirection: 'row',
@@ -724,6 +831,32 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     flexWrap: 'wrap',
     gap: 6,
+  },
+  summaryInterestBadge: {
+    backgroundColor: '#EEF4FF',
+    borderRadius: 8,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderWidth: 1,
+    borderColor: '#C7D7FE',
+  },
+  summaryInterestBadgeText: {
+    color: colors.primary,
+    fontSize: 12,
+    fontWeight: '700',
+  },
+  summaryPlaceBadge: {
+    backgroundColor: '#F0FDF4',
+    borderRadius: 8,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderWidth: 1,
+    borderColor: '#86EFAC',
+  },
+  summaryPlaceBadgeText: {
+    color: '#15803D',
+    fontSize: 12,
+    fontWeight: '700',
   },
   summaryHealthBadge: {
     backgroundColor: '#FEF2F2',

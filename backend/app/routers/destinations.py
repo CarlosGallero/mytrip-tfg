@@ -1,6 +1,6 @@
 from fastapi import APIRouter, HTTPException, status, Depends
 from app.models.user import UserResponse
-from app.models.destination import DestinationInfoRequest, DestinationInfoResponse
+from app.models.destination import DestinationInfoRequest, DestinationInfoResponse, ValidatePlaceRequest, ValidatePlaceResponse
 from app.routers.auth import get_current_user_token
 from app.db.mongodb import get_database
 from app.services.destination_service import DestinationService
@@ -14,16 +14,7 @@ async def get_destination_travel_info(
     db = Depends(get_database)
 ):
     """
-    Obtiene la información de viaje del país destino:
-    - Consulta primero la base de datos MongoDB para evitar llamadas a Gemini si ya existe para ese país de origen.
-    - Si no existe, llama a la API de Gemini:
-      - Bandera del país
-      - Moneda oficial
-      - Si hace falta pasaporte (en función del país de origen del usuario registrado)
-      - Si hace falta vacunación
-      - Si hay guerras o conflictos armados
-      - Estimación de gasto diario (comidas y actividades) en la moneda del usuario (guardado en DB para futuro uso)
-    - Almacena el resultado en la base de datos para reutilizarlo con otros usuarios del mismo país origen.
+    Obtiene la información de viaje del país destino.
     """
     try:
         origin_country = current_user.country_of_residence or "España"
@@ -38,4 +29,25 @@ async def get_destination_travel_info(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Error al obtener información del país destino: {str(e)}"
+        )
+
+@router.post("/validate-place", response_model=ValidatePlaceResponse)
+async def validate_destination_place(
+    request: ValidatePlaceRequest,
+    current_user: UserResponse = Depends(get_current_user_token)
+):
+    """
+    Verifica mediante IA si un monumento o lugar específico se encuentra
+    dentro de la ciudad destino indicada.
+    """
+    try:
+        return await DestinationService.validate_place_location(
+            place_name=request.place_name,
+            destination_city=request.destination_city,
+            destination_country=request.destination_country
+        )
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Error al validar lugar del destino: {str(e)}"
         )

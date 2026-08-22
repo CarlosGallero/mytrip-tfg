@@ -10,6 +10,30 @@ class DestinationInfoRequest(BaseModel):
         description="Ciudad o destino de viaje (ej. 'Tokio, Japón' o 'París')"
     )
 
+class ValidatePlaceRequest(BaseModel):
+    place_name: str = Field(
+        ...,
+        min_length=2,
+        max_length=150,
+        description="Nombre del monumento, atracción o lugar (ej. 'Torre Eiffel')"
+    )
+    destination_city: str = Field(
+        ...,
+        min_length=2,
+        max_length=150,
+        description="Ciudad del viaje (ej. 'París')"
+    )
+    destination_country: Optional[str] = Field(
+        default=None,
+        description="País del viaje si está disponible (ej. 'Francia')"
+    )
+
+class ValidatePlaceResponse(BaseModel):
+    is_valid: bool = Field(..., description="Indica si el lugar pertenece a la ciudad/área del viaje")
+    place_name: str = Field(..., description="Nombre del lugar consultado o corregido")
+    actual_location: Optional[str] = Field(default=None, description="Ubicación real identificada (ciudad y país)")
+    message: str = Field(..., description="Mensaje explicativo para el usuario")
+
 class EstimatedDailyCost(BaseModel):
     currency: str = Field(..., description="Moneda del país del usuario (ej. 'EUR', 'USD', 'MXN')")
     total_daily_cost: float = Field(..., description="Gasto diario aproximado total por persona en esa ciudad")
