@@ -95,8 +95,15 @@ class ItineraryService:
         for d in computed_days:
             num = d["day_number"]
             pace = daily_pace_map.get(num, req.global_pace or "moderate")
+            if pace == "relaxed":
+                pace_desc = "🌴 RITMO RELAJADO -> OBLIGATORIO: SOLO 2 O 3 PARADAS EN TOTAL (1 visita relajada + 1 comida + mucho tiempo libre)"
+            elif pace == "intense":
+                pace_desc = "⚡ RITMO A FULL / INTENSO -> OBLIGATORIO: ENTRE 5 Y 7 PARADAS EN TOTAL (2 visitas mañana + almuerzo + 2 visitas tarde + cena + noche)"
+            else:
+                pace_desc = "🚶‍♂️ RITMO MODERADO / INTERMEDIO -> OBLIGATORIO: 3 O 4 PARADAS EN TOTAL (1 mañana + almuerzo + 1 tarde + cena)"
+
             days_summary_for_prompt.append(
-                f"- Día {num}: {d['date']} ({d['day_of_week']}) | Ritmo deseado: {pace}"
+                f"- Día {num}: {d['date']} ({d['day_of_week']}) | {pace_desc}"
             )
 
         # 2. Construir prompt detallado para Gemini
@@ -150,32 +157,48 @@ REQUISITOS OBLIGATORIOS DEL VIAJERO:
 4. {interests_clause}
 5. {specific_places_clause}
 
-CALENDARIO Y DÍAS DE LA SEMANA:
+CALENDARIO Y RITMO OBLIGATORIO DE CADA DÍA:
 {chr(10).join(days_summary_for_prompt)}
 
 DIRECTRICES CLAVE DE PLANIFICACIÓN:
-A. HORARIOS Y DÍAS DE CIERRE:
+A. DIFERENCIACIÓN ESTRICTA DEL NÚMERO DE ACTIVIDADES SEGÚN EL RITMO:
+   Es IMPRESCINDIBLE que la cantidad de 'slots' refleje fielmente el ritmo indicado para cada día:
+
+   1. 🌴 DÍAS CON RITMO 'relaxed' (RELAJADO):
+      - Debe tener ÚNICAMENTE entre 2 y 3 slots en total para todo el día.
+      - Ejemplo: 1 visita matutina relajada + 1 almuerzo tranquilo (y tarde libre); O 1 almuerzo + 1 paseo de tarde + cena.
+      - Horarios muy espaciados y pausas prolongadas.
+
+   2. 🚶‍♂️ DÍAS CON RITMO 'moderate' (INTERMEDIO / MEDIO):
+      - Debe tener entre 3 y 4 slots en total para todo el día.
+      - Ejemplo: 1 actividad por la mañana + 1 almuerzo + 1 actividad por la tarde + 1 cena.
+      - Equilibrio estándar entre visitas y descanso.
+
+   3. ⚡ DÍAS CON RITMO 'intense' (A FULL / CARGADO):
+      - Debe tener OBLIGATORIAMENTE entre 5 y 7 slots en total (MUCHAS MÁS ACTIVIDADES que los días relajados e intermedios).
+      - Ejemplo completo de jornada intensa:
+        * Slot 1 (Mañana temprano): 1ª Visita cultural o monumento.
+        * Slot 2 (Media mañana): 2ª Visita o recorrido histórico cercano.
+        * Slot 3 (Almuerzo): Comida en restaurante local.
+        * Slot 4 (Primera hora de la tarde): 3ª Visita a museo, mirador o atracción.
+        * Slot 5 (Final de la tarde): 4ª Visita o paseo/parque.
+        * Slot 6 (Cena): Cena en restaurante o taberna tradicional.
+        * Slot 7 (Noche): Ocio nocturno, espectáculo o paseo iluminado.
+
+B. HORARIOS Y DÍAS DE CIERRE:
    - Presta máxima atención a qué día de la semana cae cada jornada (por ejemplo, muchos museos cierran los lunes, tiendas los domingos).
    - No programes monumentos en sus días de cierre habituales.
 
-B. OPTIMIZACIÓN GEOGRÁFICA (MISMA ZONA / BARRIO):
-   - Las actividades de la mañana, el restaurante del almuerzo y las visitas de la tarde de un mismo día DEBEN estar en el mismo barrio o zona geográfica ("zone_name") para que el viajero pueda ir a pie o en trayectos cortos de menos de 10-15 minutos.
-
-C. ESTRUCTURA POR FRANJAS HORARIAS:
-   - Cada día debe contener bloques cronológicos claros en 'slots':
-     * 'morning' (Mañana: ~09:30 - 13:00)
-     * 'lunch' (Comida / Almuerzo en restaurante local adaptado a la dieta: ~13:30 - 15:30)
-     * 'afternoon' (Tarde: ~16:00 - 19:30)
-     * 'dinner' (Cena en restaurante o taberna típica: ~20:30 - 22:30)
-     * 'night' (Paseo nocturno o espectáculo, si el ritmo del día es moderado/intenso).
-   - Si el ritmo del día es 'relaxed', incluye menos actividades con tiempos más pausados. Si es 'intense', añade más visitas culturales.
+C. OPTIMIZACIÓN GEOGRÁFICA (MISMA ZONA / BARRIO):
+   - Todas las actividades y restaurantes de un mismo día DEBEN estar ubicados en la misma zona geográfica continua ("zone_name") para que el viajero pueda ir a pie en trayectos cortos de menos de 10 minutos.
 
 D. DISTRIBUCIÓN DEL PRESUPUESTO ({req.budget} {req.currency}):
-   - Distribuye el gasto total de forma flexible y equilibrada entre todos los días del viaje.
+   - Distribuye el gasto total de forma flexible entre todos los días del viaje.
    - Cada actividad y restaurante debe tener su coste estimado aproximado por persona en 'estimated_cost'. La suma total de 'daily_estimated_cost' debe ser coherente con el presupuesto total.
 
 E. MOTIVOS DE SELECCIÓN ('selection_reasons'):
-   - Cada slot debe incluir una lista de 2 a 4 motivos concretos en formato etiqueta (ej. ["Historia y patrimonio", "Lugar solicitado", "Accesible en silla de ruedas", "Opciones Veganas", "A 5 min de la Catedral"]).
+   - Cada slot debe incluir entre 2 y 4 etiquetas SÚPER BREVES (1 a 4 palabras por etiqueta, formato badge). NUNCA textos largos ni oraciones.
+   - Ejemplos: ["Historia y patrimonio", "Lugar solicitado", "Accesible", "Opciones Veganas", "A 5 min de la Catedral"].
 
 Responde ÚNICAMENTE con un objeto JSON válido con la siguiente estructura exacta:
 {{
