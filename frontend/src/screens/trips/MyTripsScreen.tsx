@@ -2,6 +2,7 @@ import React, { useEffect, useState, useCallback } from 'react';
 import {
   ActivityIndicator,
   FlatList,
+  Modal,
   Pressable,
   RefreshControl,
   SafeAreaView,
@@ -30,6 +31,11 @@ export default function MyTripsScreen({
   const [isLoading, setIsLoading] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
 
+  // Estado para el modal de confirmación de eliminación
+  const [tripToDelete, setTripToDelete] = useState<TripResponse | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
+
   const loadTrips = useCallback(async () => {
     try {
       const data = await fetchUserTrips();
@@ -51,12 +57,21 @@ export default function MyTripsScreen({
     loadTrips();
   };
 
-  const handleDeleteTrip = async (tripId: string) => {
+  const handleConfirmDelete = async () => {
+    if (!tripToDelete || isDeleting) return;
+
+    setIsDeleting(true);
+    setDeleteError(null);
+
     try {
-      await deleteTrip(tripId);
-      setTrips((prev) => prev.filter((t) => t.id !== tripId));
-    } catch (err) {
+      await deleteTrip(tripToDelete.id);
+      setTrips((prev) => prev.filter((t) => t.id !== tripToDelete.id));
+      setTripToDelete(null);
+    } catch (err: any) {
       console.error('Error al eliminar viaje:', err);
+      setDeleteError(err?.message || 'No se pudo eliminar el viaje de la base de datos.');
+    } finally {
+      setIsDeleting(false);
     }
   };
 
@@ -96,7 +111,7 @@ export default function MyTripsScreen({
     <SafeAreaView style={styles.safeArea}>
       <View style={styles.header}>
         <View>
-          <Text style={styles.headerTitle}>Mis Viajes </Text>
+          <Text style={styles.headerTitle}>Mis Viajes</Text>
         </View>
 
         <Pressable onPress={onStartTrip} style={styles.newTripButton}>
@@ -127,10 +142,26 @@ export default function MyTripsScreen({
                 <Text style={styles.tripTitle}>{item.destination_city}</Text>
                 <Text style={styles.tripDestination}>{item.country_name}</Text>
               </View>
-              <View style={styles.tripDaysBadge}>
-                <Text style={styles.tripDaysBadgeText}>
-                  {item.total_days} {item.total_days === 1 ? 'día' : 'días'}
-                </Text>
+
+              <View style={styles.topRightActionsRow}>
+                <View style={styles.tripDaysBadge}>
+                  <Text style={styles.tripDaysBadgeText}>
+                    {item.total_days} {item.total_days === 1 ? 'día' : 'días'}
+                  </Text>
+                </View>
+
+                {/* Botón de eliminar viaje */}
+                <Pressable
+                  onPress={(e) => {
+                    e.stopPropagation();
+                    setDeleteError(null);
+                    setTripToDelete(item);
+                  }}
+                  style={styles.deleteIconButton}
+                  hitSlop={8}
+                >
+                  <Text style={styles.deleteIconText}>🗑️</Text>
+                </Pressable>
               </View>
             </View>
 
@@ -168,6 +199,57 @@ export default function MyTripsScreen({
           </Pressable>
         )}
       />
+
+      {/* MODAL DE CONFIRMACIÓN DE ELIMINACIÓN */}
+      <Modal
+        visible={tripToDelete !== null}
+        transparent
+        animationType="fade"
+        onRequestClose={() => !isDeleting && setTripToDelete(null)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalCard}>
+            <View style={styles.modalIconWrap}>
+              <Text style={styles.modalDangerIcon}>🗑️</Text>
+            </View>
+
+            <Text style={styles.modalTitle}>¿Eliminar este viaje?</Text>
+            <Text style={styles.modalSubtitle}>
+              Se eliminará permanentemente tu viaje a{' '}
+              <Text style={styles.modalHighlight}>"{tripToDelete?.destination_city}"</Text>{' '}
+              ({tripToDelete?.start_date} al {tripToDelete?.end_date}) y todo su itinerario generado.
+            </Text>
+
+            {deleteError && (
+              <View style={styles.modalErrorBox}>
+                <Text style={styles.modalErrorText}>{deleteError}</Text>
+              </View>
+            )}
+
+            <View style={styles.modalButtonsRow}>
+              <Pressable
+                onPress={() => setTripToDelete(null)}
+                disabled={isDeleting}
+                style={[styles.modalSecondaryBtn, isDeleting && styles.btnDisabled]}
+              >
+                <Text style={styles.modalSecondaryBtnText}>Cancelar</Text>
+              </Pressable>
+
+              <Pressable
+                onPress={handleConfirmDelete}
+                disabled={isDeleting}
+                style={[styles.modalDangerBtn, isDeleting && styles.btnDisabled]}
+              >
+                {isDeleting ? (
+                  <ActivityIndicator size="small" color={colors.white} />
+                ) : (
+                  <Text style={styles.modalDangerBtnText}>Sí, eliminar</Text>
+                )}
+              </Pressable>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 }
@@ -266,13 +348,6 @@ const styles = StyleSheet.create({
     fontWeight: '800',
     fontSize: 13,
   },
-  headerEyebrow: {
-    color: colors.textMuted,
-    fontSize: 12,
-    fontWeight: '700',
-    textTransform: 'uppercase',
-    letterSpacing: 0.8,
-  },
   headerTitle: {
     color: colors.text,
     fontSize: 28,
@@ -328,6 +403,11 @@ const styles = StyleSheet.create({
     marginTop: 2,
     fontWeight: '600',
   },
+  topRightActionsRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
   tripDaysBadge: {
     backgroundColor: '#F1F5F9',
     borderRadius: 10,
@@ -340,6 +420,19 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: '700',
     color: colors.text,
+  },
+  deleteIconButton: {
+    width: 32,
+    height: 32,
+    borderRadius: 10,
+    backgroundColor: '#FEF2F2',
+    borderWidth: 1,
+    borderColor: '#FECACA',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  deleteIconText: {
+    fontSize: 14,
   },
   tripDatesRow: {
     flexDirection: 'row',
@@ -410,5 +503,113 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: '800',
     color: colors.primary,
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(15, 23, 42, 0.65)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
+  },
+  modalCard: {
+    width: '100%',
+    maxWidth: 400,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 24,
+    padding: 22,
+    alignItems: 'center',
+    shadowColor: '#0F172A',
+    shadowOpacity: 0.25,
+    shadowOffset: { width: 0, height: 10 },
+    shadowRadius: 20,
+    elevation: 8,
+  },
+  modalIconWrap: {
+    width: 60,
+    height: 60,
+    borderRadius: 30,
+    backgroundColor: '#FEF2F2',
+    borderWidth: 1,
+    borderColor: '#FECACA',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 14,
+  },
+  modalDangerIcon: {
+    fontSize: 28,
+  },
+  modalTitle: {
+    fontSize: 20,
+    fontWeight: '800',
+    color: colors.text,
+    textAlign: 'center',
+    marginBottom: 8,
+  },
+  modalSubtitle: {
+    fontSize: 14,
+    color: colors.textMuted,
+    textAlign: 'center',
+    lineHeight: 20,
+    marginBottom: 18,
+  },
+  modalHighlight: {
+    color: colors.text,
+    fontWeight: '800',
+  },
+  modalErrorBox: {
+    backgroundColor: '#FEF2F2',
+    borderRadius: 12,
+    padding: 10,
+    marginBottom: 14,
+    width: '100%',
+    borderWidth: 1,
+    borderColor: '#FECACA',
+  },
+  modalErrorText: {
+    fontSize: 12,
+    color: colors.danger,
+    textAlign: 'center',
+    fontWeight: '600',
+  },
+  modalButtonsRow: {
+    flexDirection: 'row',
+    gap: 12,
+    width: '100%',
+  },
+  modalSecondaryBtn: {
+    flex: 1,
+    backgroundColor: '#F8FAFC',
+    borderRadius: 14,
+    paddingVertical: 13,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1.5,
+    borderColor: '#CBD5E1',
+  },
+  modalSecondaryBtnText: {
+    fontSize: 14,
+    fontWeight: '800',
+    color: colors.text,
+  },
+  modalDangerBtn: {
+    flex: 1,
+    backgroundColor: colors.danger,
+    borderRadius: 14,
+    paddingVertical: 13,
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: colors.danger,
+    shadowOpacity: 0.25,
+    shadowOffset: { width: 0, height: 4 },
+    shadowRadius: 8,
+    elevation: 3,
+  },
+  modalDangerBtnText: {
+    fontSize: 14,
+    fontWeight: '800',
+    color: colors.white,
+  },
+  btnDisabled: {
+    opacity: 0.5,
   },
 });
