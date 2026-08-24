@@ -90,49 +90,7 @@ export default function ItineraryDetailScreen({
         </View>
 
         <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
-          {/* TARJETA HERO DEL VIAJE */}
-          <View style={styles.heroCard}>
-            <View style={styles.heroTopRow}>
-              <View style={styles.heroDestinationBlock}>
-                <Text style={styles.heroDestinationTitle}>
-                  📍 {trip.destination_city}
-                </Text>
-                <Text style={styles.heroDates}>
-                  🗓️ {trip.start_date} al {trip.end_date}
-                </Text>
-              </View>
-              <View style={styles.budgetBadgeContainer}>
-                <Text style={styles.budgetBadgeLabel}>Presupuesto</Text>
-                <Text style={styles.budgetBadgeValue}>
-                  {trip.total_estimated_cost.toFixed(0)} / {trip.total_budget} {trip.currency}
-                </Text>
-              </View>
-            </View>
-
-            {/* Píldoras de personalización */}
-            <View style={styles.heroPillsWrap}>
-              {trip.has_mobility_issues && (
-                <View style={[styles.heroPill, styles.heroPillBlue]}>
-                  <Text style={styles.heroPillBlueText}>♿ Rutas adaptadas</Text>
-                </View>
-              )}
-              {trip.dietary_preferences.map((diet, i) => (
-                <View key={`diet-${i}`} style={[styles.heroPill, styles.heroPillGreen]}>
-                  <Text style={styles.heroPillGreenText}>🥗 {diet}</Text>
-                </View>
-              ))}
-              {trip.health_conditions.map((health, i) => (
-                <View key={`health-${i}`} style={[styles.heroPill, styles.heroPillRed]}>
-                  <Text style={styles.heroPillRedText}>🩺 {health}</Text>
-                </View>
-              ))}
-              {trip.specific_places.map((place, i) => (
-                <View key={`place-${i}`} style={[styles.heroPill, styles.heroPillOrange]}>
-                  <Text style={styles.heroPillOrangeText}>📌 {place}</Text>
-                </View>
-              ))}
-            </View>
-          </View>
+          
 
           {/* SELECTOR HORIZONTAL DE DÍAS */}
           <View style={styles.daySelectorWrapper}>

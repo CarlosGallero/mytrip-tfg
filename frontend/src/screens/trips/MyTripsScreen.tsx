@@ -96,8 +96,7 @@ export default function MyTripsScreen({
     <SafeAreaView style={styles.safeArea}>
       <View style={styles.header}>
         <View>
-          <Text style={styles.headerEyebrow}>Tus Aventuras</Text>
-          <Text style={styles.headerTitle}>Viajes guardados</Text>
+          <Text style={styles.headerTitle}>Mis Viajes </Text>
         </View>
 
         <Pressable onPress={onStartTrip} style={styles.newTripButton}>
