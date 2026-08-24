@@ -15,6 +15,7 @@ from app.models.trips import (
     ItineraryActivity,
 )
 from app.services.image_service import get_google_maps_url
+from app.services.places_service import PlacesService
 
 logger = logging.getLogger(__name__)
 
@@ -143,6 +144,26 @@ class ItineraryService:
             else "Sin monumentos fijos preseleccionados."
         )
 
+        # 2. Consultar catálogo de lugares reales verificados con Google Places API (New) + Caché MongoDB
+        verified_places = await PlacesService.get_verified_places(
+            city_name=city_name,
+            zone_name=f"Centro de {city_name}",
+            db=db,
+            category="all",
+            max_results=20
+        )
+
+        verified_catalog_str = ""
+        if verified_places:
+            cat_lines = ["\nCATÁLOGO OFICIAL DE ESTABLECIMIENTOS Y LUGARES REALES VERIFICADOS POR GOOGLE PLACES (100% OPERATIVOS):"]
+            for vp in verified_places:
+                hours_str = ", ".join(vp.get("opening_hours", [])) if vp.get("opening_hours") else "Horario habitual"
+                cat_lines.append(
+                    f"- [{vp.get('primary_type', 'lugar')}] {vp['name']} | Dirección: {vp['address']} | "
+                    f"Rating: {vp.get('rating', 4.5)}⭐ | Horarios: {hours_str[:80]} | Maps: {vp['maps_url']}"
+                )
+            verified_catalog_str = "\n".join(cat_lines)
+
         prompt = f"""
 Eres un guía turístico y planificador de itinerarios de élite a nivel mundial.
 Genera un itinerario COMPLETO, REALISTA, DETALLADO y ALTAMENTE PERSONALIZADO para un viaje a:
@@ -156,6 +177,8 @@ REQUISITOS OBLIGATORIOS DEL VIAJERO:
 3. {diet_clause}
 4. {interests_clause}
 5. {specific_places_clause}
+
+{verified_catalog_str}
 
 CALENDARIO Y RITMO OBLIGATORIO DE CADA DÍA:
 {chr(10).join(days_summary_for_prompt)}
@@ -185,18 +208,27 @@ A. DIFERENCIACIÓN ESTRICTA DEL NÚMERO DE ACTIVIDADES SEGÚN EL RITMO:
         * Slot 6 (Cena): Cena en restaurante o taberna tradicional.
         * Slot 7 (Noche): Ocio nocturno, espectáculo o paseo iluminado.
 
-B. HORARIOS Y DÍAS DE CIERRE:
-   - Presta máxima atención a qué día de la semana cae cada jornada (por ejemplo, muchos museos cierran los lunes, tiendas los domingos).
-   - No programes monumentos en sus días de cierre habituales.
+B. VERACIDAD, EXISTENCIA REAL Y CATÁLOGO GOOGLE PLACES:
+   - Todos los restaurantes, tabernas, monumentos y bares propuestos DEBEN SER 100% REALES y existentes en "{city_name}".
+   - PRIORIZA Y SELECCIONA los establecimientos del catálogo verificado de Google Places proporcionado arriba para cada comida, cena, visita y copas.
+   - Si seleccionas un lugar del catálogo, utiliza EXACTAMENTE su nombre oficial y su dirección. Queda TERMINANTEMENTE PROHIBIDO inventar nombres genéricos o ficticios.
 
-C. OPTIMIZACIÓN GEOGRÁFICA (MISMA ZONA / BARRIO):
+C. HORARIOS REALES Y LICENCIAS DE OCIO NOCTURNO:
+   - Presta máxima atención a qué día de la semana cae cada jornada (por ejemplo, muchos museos cierran los lunes, tiendas los domingos).
+   - FRANJA 'NIGHT' (Noche / Copas / Ocio a partir de las 22:30/23:00):
+     * DEBE tratarse de un PUB, COCTELERÍA, BAR DE COPAS, TERRAZA NOCTURNA con licencia y apertura real hasta la madrugada (02:00 a 03:30), o bien un paseo nocturno iluminado o espectáculo.
+     * PROHIBIDO proponer cafeterías diurnas, panaderías o restaurantes que cierren la cocina a las 23:00.
+   - FRANJA 'LUNCH': Restaurantes con servicio de almuerzo operativo (~13:30 a 16:00).
+   - FRANJA 'DINNER': Restaurantes o tabernas con servicio de cena operativo (~20:30 a 23:30).
+
+D. OPTIMIZACIÓN GEOGRÁFICA (MISMA ZONA / BARRIO):
    - Todas las actividades y restaurantes de un mismo día DEBEN estar ubicados en la misma zona geográfica continua ("zone_name") para que el viajero pueda ir a pie en trayectos cortos de menos de 10 minutos.
 
-D. DISTRIBUCIÓN DEL PRESUPUESTO ({req.budget} {req.currency}):
+E. DISTRIBUCIÓN DEL PRESUPUESTO ({req.budget} {req.currency}):
    - Distribuye el gasto total de forma flexible entre todos los días del viaje.
    - Cada actividad y restaurante debe tener su coste estimado aproximado por persona en 'estimated_cost'. La suma total de 'daily_estimated_cost' debe ser coherente con el presupuesto total.
 
-E. MOTIVOS DE SELECCIÓN ('selection_reasons'):
+F. MOTIVOS DE SELECCIÓN ('selection_reasons'):
    - Cada slot debe incluir entre 2 y 4 etiquetas SÚPER BREVES (1 a 4 palabras por etiqueta, formato badge). NUNCA textos largos ni oraciones.
    - Ejemplos: ["Historia y patrimonio", "Lugar solicitado", "Accesible", "Opciones Veganas", "A 5 min de la Catedral"].
 
@@ -263,7 +295,6 @@ Responde ÚNICAMENTE con un objeto JSON válido con la siguiente estructura exac
             raise RuntimeError(f"No se pudo generar el itinerario con IA: {last_err}")
 
         # 3. Enriquecer actividades con fotos de Wikipedia y enlaces de Google Maps en paralelo
-        all_activities_to_enrich = []
         parsed_days: List[ItineraryDay] = []
         total_estimated_calc = 0.0
 
@@ -276,6 +307,24 @@ Responde ÚNICAMENTE con un objeto JSON válido con la siguiente estructura exac
                 day_cost += cost
                 title = str(slot_raw.get("title", "Visita turística")).strip()
 
+                # Comprobar si coincide con algún lugar verificado de Google Places
+                matched_place = next(
+                    (vp for vp in verified_places if vp['name'].lower() in title.lower() or title.lower() in vp['name'].lower()),
+                    None
+                )
+                official_maps_url = matched_place["maps_url"] if matched_place else get_google_maps_url(title, city_name)
+                official_address = matched_place["address"] if matched_place else str(slot_raw.get("address", city_name))
+
+                # Sanitizar motivos de selección
+                raw_reasons = slot_raw.get("selection_reasons", [])
+                clean_reasons = []
+                for r in raw_reasons:
+                    r_str = str(r).strip()
+                    if len(r_str) > 35:
+                        r_str = r_str[:32] + "..."
+                    if r_str:
+                        clean_reasons.append(r_str)
+
                 activity_dict = {
                     "time_slot": str(slot_raw.get("time_slot", "morning")),
                     "time_range": str(slot_raw.get("time_range", "09:30 - 11:30")),
@@ -284,10 +333,10 @@ Responde ÚNICAMENTE con un objeto JSON válido con la siguiente estructura exac
                     "description": str(slot_raw.get("description", "")),
                     "estimated_cost": cost,
                     "currency": req.currency,
-                    "address": str(slot_raw.get("address", city_name)),
-                    "maps_url": get_google_maps_url(title, city_name),
+                    "address": official_address,
+                    "maps_url": official_maps_url,
                     "image_url": None,
-                    "selection_reasons": [str(r) for r in slot_raw.get("selection_reasons", [])]
+                    "selection_reasons": clean_reasons or ["Visita recomendada"]
                 }
                 slots_list.append(ItineraryActivity(**activity_dict))
 
@@ -464,6 +513,24 @@ Responde ÚNICAMENTE con un objeto JSON válido con la siguiente estructura exac
             else "Dieta: Estándar (gastronomía local)."
         )
 
+        # Obtener catálogo de lugares reales verificados con Google Places API para esta zona y categoría
+        verified_candidates = await PlacesService.get_verified_places(
+            city_name=city_name,
+            zone_name=zone_name,
+            db=db,
+            category=replacement_type,
+            max_results=10
+        )
+
+        verified_block = ""
+        if verified_candidates:
+            v_lines = ["\nCATÁLOGO OFICIAL DE ESTABLECIMIENTOS REALES VERIFICADOS POR GOOGLE PLACES:"]
+            for vc in verified_candidates:
+                if vc["name"] not in existing_titles and current_title.lower() not in vc["name"].lower():
+                    v_lines.append(f"- {vc['name']} | Dirección: {vc['address']} | Rating: {vc.get('rating', 4.5)}⭐ | Maps: {vc['maps_url']}")
+            if len(v_lines) > 1:
+                verified_block = "\n".join(v_lines) + "\n\nREGLA OBLIGATORIA: Debes seleccionar preferentemente una de estas opciones verificadas usando su nombre y dirección exactos."
+
         prompt = f"""
 Eres un guía turístico local experto en "{city_name}" ({country_name}).
 El usuario desea CAMBIAR la parada actual de su itinerario:
@@ -471,13 +538,16 @@ El usuario desea CAMBIAR la parada actual de su itinerario:
 - Zona geográfica obligatoria: "{zone_name}" ({city_name})
 - Tipo de reemplazo solicitado: {type_desc}
 
+{verified_block}
+
 REQUISITOS ESTRICTOS:
 1. OPTIMIZACIÓN GEOGRÁFICA: El nuevo lugar DEBE estar situado DENTRO de la misma zona/barrio ("{zone_name}") para no romper la ruta optimizada a pie de ese día.
 2. {mobility_rule}
 3. {diet_rule}
 4. {cost_hint}
 5. NO REPETIR ninguno de los siguientes lugares ya presentes en el viaje: {', '.join(existing_titles)}.
-6. MOTIVOS DE SELECCIÓN ('selection_reasons'): Deben ser ETIQUETAS SÚPER BREVES de 1 a 4 palabras (como badges o tags). NUNCA oraciones largas ni explicaciones en párrafo.
+6. VERACIDAD Y LICENCIAS: El lugar DEBE ser 100% REAL, existente y consolidado en {city_name} (prohibido nombres inventados). Si es para la noche/copas, DEBE ser un pub o coctelería con licencia real hasta la madrugada (02:00-03:00).
+7. MOTIVOS DE SELECCIÓN ('selection_reasons'): Deben ser ETIQUETAS SÚPER BREVES de 1 a 4 palabras (como badges o tags). NUNCA oraciones largas ni explicaciones en párrafo.
    Ejemplos obligatorios de formato: ["Opciones vegetarianas", "Desayuno tradicional", "En el mismo barrio", "Accesible", "Entrada gratis"].
 
 Genera una ÚNICA alternativa atractiva y real. Responde ÚNICAMENTE con un objeto JSON válido:
@@ -525,10 +595,19 @@ Genera una ÚNICA alternativa atractiva y real. Responde ÚNICAMENTE con un obje
         if not new_slot_dict:
             raise RuntimeError(f"No se pudo generar la alternativa con IA: {last_err}")
 
-        # Enriquecer con Google Maps search link
+        # Enriquecer con Google Places / Google Maps
         new_title = str(new_slot_dict.get("title", "Nueva actividad")).strip()
-        new_slot_dict["title"] = new_title
-        new_slot_dict["maps_url"] = get_google_maps_url(new_title, city_name)
+        matched_cand = next(
+            (vc for vc in verified_candidates if vc['name'].lower() in new_title.lower() or new_title.lower() in vc['name'].lower()),
+            None
+        )
+        final_title = matched_cand["name"] if matched_cand else new_title
+        final_maps = matched_cand["maps_url"] if matched_cand else get_google_maps_url(final_title, city_name)
+        final_addr = matched_cand["address"] if matched_cand else str(new_slot_dict.get("address", city_name))
+
+        new_slot_dict["title"] = final_title
+        new_slot_dict["maps_url"] = final_maps
+        new_slot_dict["address"] = final_addr
         new_slot_dict["image_url"] = None
         new_slot_dict["time_slot"] = time_slot
         new_slot_dict["time_range"] = time_range
