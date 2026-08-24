@@ -11,6 +11,7 @@ import {
   View,
 } from 'react-native';
 import { regenerateTripSlot } from '../../api/itinerary';
+import BookingGuestsModal from '../../components/trip/BookingGuestsModal';
 import { colors } from '../../theme/colors';
 import { theme } from '../../theme/theme';
 import { ItineraryActivity, TripResponse } from '../../types';
@@ -37,6 +38,9 @@ export default function ItineraryDetailScreen({
   const [selectedDayNumber, setSelectedDayNumber] = useState<number>(
     initialTrip.days.length > 0 ? initialTrip.days[0].day_number : 1
   );
+
+  // Modal de huéspedes para Booking.com
+  const [showBookingModal, setShowBookingModal] = useState(false);
 
   // Modal de cambio de actividad
   const [slotToChange, setSlotToChange] = useState<ChangingSlotTarget | null>(null);
@@ -314,6 +318,19 @@ export default function ItineraryDetailScreen({
                 </View>
               ))}
             </View>
+
+            {/* BOTÓN DE ALOJAMIENTO EN BOOKING */}
+            <Pressable
+              onPress={() => setShowBookingModal(true)}
+              style={({ pressed }) => [
+                styles.heroBookingButton,
+                pressed && styles.heroBookingButtonPressed,
+              ]}
+            >
+              <Text style={styles.heroBookingButtonText}>
+                🏨 ¿Buscas alojamiento en {currentTrip.destination_city}? Ver en Booking.com ↗
+              </Text>
+            </Pressable>
           </View>
 
           {/* SELECTOR HORIZONTAL DE DÍAS */}
@@ -502,6 +519,13 @@ export default function ItineraryDetailScreen({
             </View>
           </View>
         </Modal>
+
+        {/* MODAL DE CONFIGURACIÓN DE HUÉSPEDES PARA BOOKING */}
+        <BookingGuestsModal
+          visible={showBookingModal}
+          trip={currentTrip}
+          onClose={() => setShowBookingModal(false)}
+        />
       </View>
     </SafeAreaView>
   );
@@ -655,6 +679,26 @@ const styles = StyleSheet.create({
     fontSize: 11,
     fontWeight: '700',
     color: '#B45309',
+  },
+  heroBookingButton: {
+    backgroundColor: '#F0F7FF',
+    borderRadius: 14,
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+    marginTop: 12,
+    borderWidth: 1.5,
+    borderColor: '#BAE6FD',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  heroBookingButtonPressed: {
+    backgroundColor: '#E0F2FE',
+    borderColor: '#0284C7',
+  },
+  heroBookingButtonText: {
+    fontSize: 12,
+    fontWeight: '800',
+    color: '#0369A1',
   },
   daySelectorWrapper: {
     marginHorizontal: -16,

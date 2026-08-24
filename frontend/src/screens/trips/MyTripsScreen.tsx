@@ -2,6 +2,7 @@ import React, { useEffect, useState, useCallback } from 'react';
 import {
   ActivityIndicator,
   FlatList,
+  Linking,
   Modal,
   Pressable,
   RefreshControl,
@@ -12,6 +13,7 @@ import {
 } from 'react-native';
 
 import { fetchUserTrips, deleteTrip } from '../../api/itinerary';
+import BookingGuestsModal from '../../components/trip/BookingGuestsModal';
 import { colors } from '../../theme/colors';
 import { theme } from '../../theme/theme';
 import { TripResponse } from '../../types';
@@ -35,6 +37,9 @@ export default function MyTripsScreen({
   const [tripToDelete, setTripToDelete] = useState<TripResponse | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
   const [deleteError, setDeleteError] = useState<string | null>(null);
+
+  // Estado para el modal de configuración de huéspedes de Booking
+  const [tripForBooking, setTripForBooking] = useState<TripResponse | null>(null);
 
   const loadTrips = useCallback(async () => {
     try {
@@ -72,6 +77,17 @@ export default function MyTripsScreen({
       setDeleteError(err?.message || 'No se pudo eliminar el viaje de la base de datos.');
     } finally {
       setIsDeleting(false);
+    }
+  };
+
+  const handleOpenBooking = async (trip: TripResponse) => {
+    try {
+      const city = trip.destination_city || trip.destination;
+      const encodedCity = encodeURIComponent(city);
+      const bookingUrl = `https://www.booking.com/searchresults.es.html?ss=${encodedCity}&checkin=${trip.start_date}&checkout=${trip.end_date}&group_adults=2&no_rooms=1&group_children=0`;
+      await Linking.openURL(bookingUrl);
+    } catch (err) {
+      console.error('Error al abrir Booking.com:', err);
     }
   };
 
@@ -193,11 +209,40 @@ export default function MyTripsScreen({
               ))}
             </View>
 
+            {/* BOTÓN DE AYUDA PARA BUSCAR ALOJAMIENTO EN BOOKING */}
+            <Pressable
+              onPress={(e) => {
+                e.stopPropagation();
+                setTripForBooking(item);
+              }}
+              style={({ pressed }) => [
+                styles.bookingButton,
+                pressed && styles.bookingButtonPressed,
+              ]}
+            >
+              <View style={styles.bookingIconWrap}>
+                <Text style={styles.bookingIconText}>🏨</Text>
+              </View>
+              <View style={styles.bookingTextWrap}>
+                <Text style={styles.bookingButtonTitle}>Te ayudamos a buscar alojamiento</Text>
+                <Text style={styles.bookingButtonSubtitle}>
+                  Configurar viajeros y ver hoteles en {item.destination_city} ↗
+                </Text>
+              </View>
+            </Pressable>
+
             <View style={styles.tripCardFooter}>
               <Text style={styles.viewItineraryLink}>Ver itinerario completo →</Text>
             </View>
           </Pressable>
         )}
+      />
+
+      {/* MODAL DE CONFIGURACIÓN DE HUÉSPEDES PARA BOOKING */}
+      <BookingGuestsModal
+        visible={tripForBooking !== null}
+        trip={tripForBooking}
+        onClose={() => setTripForBooking(null)}
       />
 
       {/* MODAL DE CONFIRMACIÓN DE ELIMINACIÓN */}
@@ -217,7 +262,7 @@ export default function MyTripsScreen({
             <Text style={styles.modalSubtitle}>
               Se eliminará permanentemente tu viaje a{' '}
               <Text style={styles.modalHighlight}>"{tripToDelete?.destination_city}"</Text>{' '}
-              ({tripToDelete?.start_date} al {tripToDelete?.end_date}) y todo su itinerario generado.
+              ({tripToDelete?.start_date} al {tripToDelete?.end_date}) y todo su itinerario generado de la base de datos.
             </Text>
 
             {deleteError && (
@@ -491,6 +536,48 @@ const styles = StyleSheet.create({
     fontSize: 11,
     fontWeight: '700',
     color: '#B45309',
+  },
+  bookingButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#F0F7FF',
+    borderRadius: 16,
+    padding: 12,
+    marginTop: 14,
+    borderWidth: 1.5,
+    borderColor: '#BAE6FD',
+    gap: 10,
+  },
+  bookingButtonPressed: {
+    backgroundColor: '#E0F2FE',
+    borderColor: '#0284C7',
+  },
+  bookingIconWrap: {
+    width: 36,
+    height: 36,
+    borderRadius: 10,
+    backgroundColor: '#FFFFFF',
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: '#BAE6FD',
+  },
+  bookingIconText: {
+    fontSize: 18,
+  },
+  bookingTextWrap: {
+    flex: 1,
+  },
+  bookingButtonTitle: {
+    fontSize: 13,
+    fontWeight: '800',
+    color: '#0369A1',
+  },
+  bookingButtonSubtitle: {
+    fontSize: 11,
+    color: colors.textMuted,
+    marginTop: 1,
+    fontWeight: '600',
   },
   tripCardFooter: {
     marginTop: 12,
