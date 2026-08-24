@@ -2,7 +2,7 @@ import logging
 from typing import List
 from fastapi import APIRouter, Depends, HTTPException, status
 from app.db.mongodb import get_database
-from app.models.trips import GenerateTripRequest, TripResponse
+from app.models.trips import GenerateTripRequest, TripResponse, RegenerateSlotRequest
 from app.models.user import UserResponse
 from app.routers.auth import get_current_user_token
 from app.services.itinerary_service import ItineraryService
@@ -19,7 +19,7 @@ async def generate_trip_itinerary(
 ):
     """
     Genera un itinerario 100% personalizado mediante IA (Gemini),
-    enriquecido con imágenes de Wikipedia y enlaces de Google Maps,
+    enriquecido con enlaces de Google Maps,
     y lo almacena en la base de datos MongoDB del usuario.
     """
     try:
@@ -34,6 +34,42 @@ async def generate_trip_itinerary(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Error al generar el itinerario: {str(e)}"
+        )
+
+@router.post("/{trip_id}/regenerate-slot", response_model=TripResponse)
+async def regenerate_trip_slot(
+    trip_id: str,
+    request: RegenerateSlotRequest,
+    current_user: UserResponse = Depends(get_current_user_token),
+    db = Depends(get_database)
+):
+    """
+    Regenera una actividad o restaurante individual de un día manteniendo la
+    optimización de zona/distancia, presupuesto, accesibilidad y preferencias dietéticas.
+    """
+    try:
+        user_id = str(current_user.id)
+        updated_trip = await ItineraryService.regenerate_slot(
+            trip_id=trip_id,
+            day_number=request.day_number,
+            slot_index=request.slot_index,
+            replacement_type=request.replacement_type,
+            user_id=user_id,
+            db=db
+        )
+        if not updated_trip:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Viaje, día o actividad no encontrada."
+            )
+        return updated_trip
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error regenerando slot del viaje: {e}", exc_info=True)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Error al cambiar la actividad: {str(e)}"
         )
 
 @router.get("", response_model=List[TripResponse])

@@ -1,6 +1,8 @@
 import React, { useState } from 'react';
 import {
+  ActivityIndicator,
   Linking,
+  Modal,
   Pressable,
   SafeAreaView,
   ScrollView,
@@ -8,6 +10,7 @@ import {
   Text,
   View,
 } from 'react-native';
+import { regenerateTripSlot } from '../../api/itinerary';
 import { colors } from '../../theme/colors';
 import { theme } from '../../theme/theme';
 import { ItineraryActivity, TripResponse } from '../../types';
@@ -15,17 +18,32 @@ import { ItineraryActivity, TripResponse } from '../../types';
 interface ItineraryDetailScreenProps {
   trip: TripResponse;
   onBack?: () => void;
+  onTripUpdated?: (updated: TripResponse) => void;
+}
+
+interface ChangingSlotTarget {
+  dayNumber: number;
+  slotIndex: number;
+  timeSlot: string;
+  currentTitle: string;
 }
 
 export default function ItineraryDetailScreen({
-  trip,
+  trip: initialTrip,
   onBack,
+  onTripUpdated,
 }: ItineraryDetailScreenProps) {
+  const [currentTrip, setCurrentTrip] = useState<TripResponse>(initialTrip);
   const [selectedDayNumber, setSelectedDayNumber] = useState<number>(
-    trip.days.length > 0 ? trip.days[0].day_number : 1
+    initialTrip.days.length > 0 ? initialTrip.days[0].day_number : 1
   );
 
-  const activeDay = trip.days.find((d) => d.day_number === selectedDayNumber) || trip.days[0];
+  // Modal de cambio de actividad
+  const [slotToChange, setSlotToChange] = useState<ChangingSlotTarget | null>(null);
+  const [isRegenerating, setIsRegenerating] = useState(false);
+  const [regenerateError, setRegenerateError] = useState<string | null>(null);
+
+  const activeDay = currentTrip.days.find((d) => d.day_number === selectedDayNumber) || currentTrip.days[0];
 
   const handleOpenMaps = async (url: string) => {
     if (!url) return;
@@ -39,17 +57,17 @@ export default function ItineraryDetailScreen({
   const getSlotIcon = (timeSlot: string) => {
     switch (timeSlot.toLowerCase()) {
       case 'morning':
-        return '🌅 Mañana';
+        return '';
       case 'lunch':
-        return '🍽️ Almuerzo';
+        return '';
       case 'afternoon':
-        return '🌇 Tarde';
+        return '';
       case 'dinner':
-        return '🍷 Cena';
+        return '';
       case 'night':
-        return '🌙 Noche';
+        return '';
       default:
-        return '⏰ Actividad';
+        return '';
     }
   };
 
@@ -69,6 +87,170 @@ export default function ItineraryDetailScreen({
     }
   };
 
+  const handleExecuteChange = async (replacementType: string) => {
+    if (!slotToChange || isRegenerating) return;
+
+    setIsRegenerating(true);
+    setRegenerateError(null);
+
+    try {
+      const updated = await regenerateTripSlot(
+        currentTrip.id,
+        slotToChange.dayNumber,
+        slotToChange.slotIndex,
+        replacementType
+      );
+      setCurrentTrip(updated);
+      onTripUpdated?.(updated);
+      setSlotToChange(null);
+    } catch (err: any) {
+      console.error('Error al regenerar slot:', err);
+      setRegenerateError(
+        err?.message || 'No se pudo generar la alternativa. Por favor, inténtalo de nuevo.'
+      );
+    } finally {
+      setIsRegenerating(false);
+    }
+  };
+
+  const renderModalOptions = () => {
+    if (!slotToChange) return null;
+    const slotType = slotToChange.timeSlot.toLowerCase();
+
+    // 1. Franja de Mañana: Otra Actividad vs Bar de Desayuno
+    if (slotType === 'morning') {
+      return (
+        <View style={styles.modalOptionsContainer}>
+          <Pressable
+            onPress={() => handleExecuteChange('activity')}
+            disabled={isRegenerating}
+            style={({ pressed }) => [
+              styles.modalOptionButton,
+              pressed && styles.modalOptionButtonPressed,
+            ]}
+          >
+            <View style={styles.optionIconWrap}>
+              <Text style={styles.optionIcon}>🏛️</Text>
+            </View>
+            <View style={styles.optionTextWrap}>
+              <Text style={styles.optionTitle}>Otra Actividad / Visita</Text>
+              <Text style={styles.optionDesc}>
+                Monumento, museo o paseo cultural en la misma zona.
+              </Text>
+            </View>
+          </Pressable>
+
+          <Pressable
+            onPress={() => handleExecuteChange('breakfast_cafe')}
+            disabled={isRegenerating}
+            style={({ pressed }) => [
+              styles.modalOptionButton,
+              pressed && styles.modalOptionButtonPressed,
+            ]}
+          >
+            <View style={styles.optionIconWrap}>
+              <Text style={styles.optionIcon}>☕</Text>
+            </View>
+            <View style={styles.optionTextWrap}>
+              <Text style={styles.optionTitle}>Bar / Cafetería para desayunar</Text>
+              <Text style={styles.optionDesc}>
+                Café tradicional o de especialidad y tostadas en este barrio.
+              </Text>
+            </View>
+          </Pressable>
+        </View>
+      );
+    }
+
+    // 2. Franja de Almuerzo / Cena: Otro Restaurante vs Actividad
+    if (slotType === 'lunch' || slotType === 'dinner') {
+      return (
+        <View style={styles.modalOptionsContainer}>
+          <Pressable
+            onPress={() => handleExecuteChange('restaurant')}
+            disabled={isRegenerating}
+            style={({ pressed }) => [
+              styles.modalOptionButton,
+              pressed && styles.modalOptionButtonPressed,
+            ]}
+          >
+            <View style={styles.optionIconWrap}>
+              <Text style={styles.optionIcon}>🍽️</Text>
+            </View>
+            <View style={styles.optionTextWrap}>
+              <Text style={styles.optionTitle}>Otro Restaurante</Text>
+              <Text style={styles.optionDesc}>
+                Mesón, taberna o restaurante local adaptado a tus dietas.
+              </Text>
+            </View>
+          </Pressable>
+
+          <Pressable
+            onPress={() => handleExecuteChange('activity')}
+            disabled={isRegenerating}
+            style={({ pressed }) => [
+              styles.modalOptionButton,
+              pressed && styles.modalOptionButtonPressed,
+            ]}
+          >
+            <View style={styles.optionIconWrap}>
+              <Text style={styles.optionIcon}>🏛️</Text>
+            </View>
+            <View style={styles.optionTextWrap}>
+              <Text style={styles.optionTitle}>Cambiar por una Actividad</Text>
+              <Text style={styles.optionDesc}>
+                Sustituir la comida por una visita turística o paseo.
+              </Text>
+            </View>
+          </Pressable>
+        </View>
+      );
+    }
+
+    // 3. Franja de Tarde / Noche: Otra Actividad vs Restaurante / Bar
+    return (
+      <View style={styles.modalOptionsContainer}>
+        <Pressable
+          onPress={() => handleExecuteChange('activity')}
+          disabled={isRegenerating}
+          style={({ pressed }) => [
+            styles.modalOptionButton,
+            pressed && styles.modalOptionButtonPressed,
+          ]}
+        >
+          <View style={styles.optionIconWrap}>
+            <Text style={styles.optionIcon}>🏛️</Text>
+          </View>
+          <View style={styles.optionTextWrap}>
+            <Text style={styles.optionTitle}>Otra Actividad / Paseo</Text>
+            <Text style={styles.optionDesc}>
+              Parque, monumento o recorrido turístico cercano.
+            </Text>
+          </View>
+        </Pressable>
+
+        <Pressable
+          onPress={() => handleExecuteChange('restaurant')}
+          disabled={isRegenerating}
+          style={({ pressed }) => [
+            styles.modalOptionButton,
+            pressed && styles.modalOptionButtonPressed,
+          ]}
+        >
+          <View style={styles.optionIconWrap}>
+            <Text style={styles.optionIcon}>🍷</Text>
+          </View>
+          <View style={styles.optionTextWrap}>
+            <Text style={styles.optionTitle}>Restaurante / Bar de Tapas</Text>
+            <Text style={styles.optionDesc}>
+              Parada gastronómica o merienda/cena en este barrio.
+            </Text>
+          </View>
+        </Pressable>
+      </View>
+    );
+  };
+
   return (
     <SafeAreaView style={styles.safeArea}>
       <View style={styles.container}>
@@ -81,21 +263,63 @@ export default function ItineraryDetailScreen({
           )}
           <View style={styles.headerTitleBlock}>
             <Text style={styles.headerTitle} numberOfLines={1}>
-              {trip.destination_city}
+              {currentTrip.destination_city}
             </Text>
             <Text style={styles.headerSubtitle}>
-              {trip.country_name} • {trip.total_days} {trip.total_days === 1 ? 'día' : 'días'}
+              {currentTrip.country_name} • {currentTrip.total_days} {currentTrip.total_days === 1 ? 'día' : 'días'}
             </Text>
           </View>
         </View>
 
         <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
-          
+          {/* TARJETA HERO DEL VIAJE */}
+          <View style={styles.heroCard}>
+            <View style={styles.heroTopRow}>
+              <View style={styles.heroDestinationBlock}>
+                <Text style={styles.heroDestinationTitle}>
+                  📍 {currentTrip.destination_city}
+                </Text>
+                <Text style={styles.heroDates}>
+                  🗓️ {currentTrip.start_date} al {currentTrip.end_date}
+                </Text>
+              </View>
+              <View style={styles.budgetBadgeContainer}>
+                <Text style={styles.budgetBadgeLabel}>Presupuesto</Text>
+                <Text style={styles.budgetBadgeValue}>
+                  {currentTrip.total_estimated_cost.toFixed(0)} / {currentTrip.total_budget} {currentTrip.currency}
+                </Text>
+              </View>
+            </View>
+
+            {/* Píldoras de personalización */}
+            <View style={styles.heroPillsWrap}>
+              {currentTrip.has_mobility_issues && (
+                <View style={[styles.heroPill, styles.heroPillBlue]}>
+                  <Text style={styles.heroPillBlueText}>♿ Rutas adaptadas</Text>
+                </View>
+              )}
+              {currentTrip.dietary_preferences.map((diet, i) => (
+                <View key={`diet-${i}`} style={[styles.heroPill, styles.heroPillGreen]}>
+                  <Text style={styles.heroPillGreenText}>🥗 {diet}</Text>
+                </View>
+              ))}
+              {currentTrip.health_conditions.map((health, i) => (
+                <View key={`health-${i}`} style={[styles.heroPill, styles.heroPillRed]}>
+                  <Text style={styles.heroPillRedText}>🩺 {health}</Text>
+                </View>
+              ))}
+              {currentTrip.specific_places.map((place, i) => (
+                <View key={`place-${i}`} style={[styles.heroPill, styles.heroPillOrange]}>
+                  <Text style={styles.heroPillOrangeText}>📌 {place}</Text>
+                </View>
+              ))}
+            </View>
+          </View>
 
           {/* SELECTOR HORIZONTAL DE DÍAS */}
           <View style={styles.daySelectorWrapper}>
             <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.dayTabsRow}>
-              {trip.days.map((day) => {
+              {currentTrip.days.map((day) => {
                 const isSelected = day.day_number === selectedDayNumber;
                 return (
                   <Pressable
@@ -131,7 +355,7 @@ export default function ItineraryDetailScreen({
               </View>
               <View style={styles.dayCostTag}>
                 <Text style={styles.dayCostLabel}>Est. día</Text>
-                <Text style={styles.dayCostValue}>{activeDay.daily_estimated_cost.toFixed(0)} {trip.currency}</Text>
+                <Text style={styles.dayCostValue}>{activeDay.daily_estimated_cost.toFixed(0)} {currentTrip.currency}</Text>
               </View>
             </View>
           )}
@@ -148,7 +372,7 @@ export default function ItineraryDetailScreen({
                     <View style={styles.activityCardHeader}>
                       <View style={styles.timeSlotPill}>
                         <Text style={styles.timeSlotPillText}>
-                          {getSlotIcon(slot.time_slot)} • {slot.time_range}
+                           {slot.time_range}
                         </Text>
                       </View>
                       <View
@@ -193,20 +417,33 @@ export default function ItineraryDetailScreen({
                         </View>
                       )}
 
-                      {/* Dirección y Botón Google Maps */}
-                      <View style={styles.addressMapsBlock}>
-                        <Text style={styles.addressText} numberOfLines={1}>
-                          📍 {slot.address}
-                        </Text>
+                      {/* Dirección */}
+                      <Text style={styles.addressText} numberOfLines={1}>
+                        📍 {slot.address}
+                      </Text>
+
+                      {/* BOTONES DE ACCIÓN: CAMBIAR PARADA Y GOOGLE MAPS */}
+                      <View style={styles.actionButtonsRow}>
+                        <Pressable
+                          onPress={() =>
+                            setSlotToChange({
+                              dayNumber: activeDay.day_number,
+                              slotIndex: index,
+                              timeSlot: slot.time_slot,
+                              currentTitle: slot.title,
+                            })
+                          }
+                          style={styles.changeSlotButton}
+                        >
+                          <Text style={styles.changeSlotButtonText}>🔄 Cambiar parada</Text>
+                        </Pressable>
 
                         {slot.maps_url ? (
                           <Pressable
                             onPress={() => handleOpenMaps(slot.maps_url)}
                             style={styles.mapsButton}
                           >
-                            <Text style={styles.mapsButtonText}>
-                              🗺️ Ver ubicación y web oficial en Google Maps
-                            </Text>
+                            <Text style={styles.mapsButtonText}>🗺️ Ver en Maps</Text>
                           </Pressable>
                         ) : null}
                       </View>
@@ -217,6 +454,54 @@ export default function ItineraryDetailScreen({
             </View>
           )}
         </ScrollView>
+
+        {/* MODAL DE SELECCIÓN DE REEMPLAZO */}
+        <Modal
+          visible={slotToChange !== null}
+          transparent
+          animationType="fade"
+          onRequestClose={() => !isRegenerating && setSlotToChange(null)}
+        >
+          <View style={styles.modalOverlay}>
+            <View style={styles.modalCard}>
+              {isRegenerating ? (
+                <View style={styles.modalLoadingContainer}>
+                  <ActivityIndicator size="large" color={colors.primary} />
+                  <Text style={styles.modalLoadingTitle}>Buscando alternativa con IA...</Text>
+                  <Text style={styles.modalLoadingSubtitle}>
+                    Optimizando ubicación en {activeDay?.zone_name} y manteniendo tu presupuesto.
+                  </Text>
+                </View>
+              ) : (
+                <>
+                  <View style={styles.modalHeader}>
+                    <Text style={styles.modalTitle}>🔄 Cambiar parada</Text>
+                    <Pressable
+                      onPress={() => setSlotToChange(null)}
+                      style={styles.modalCloseBtn}
+                    >
+                      <Text style={styles.modalCloseBtnText}>✕</Text>
+                    </Pressable>
+                  </View>
+
+                  <Text style={styles.modalSubtitle}>
+                    Reemplazar{' '}
+                    <Text style={styles.modalHighlight}>"{slotToChange?.currentTitle}"</Text>{' '}
+                    por una opción en la misma zona ({activeDay?.zone_name}):
+                  </Text>
+
+                  {regenerateError && (
+                    <View style={styles.modalErrorBox}>
+                      <Text style={styles.modalErrorText}>{regenerateError}</Text>
+                    </View>
+                  )}
+
+                  {renderModalOptions()}
+                </>
+              )}
+            </View>
+          </View>
+        </Modal>
       </View>
     </SafeAreaView>
   );
@@ -581,35 +866,177 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: colors.text,
   },
-  addressMapsBlock: {
-    gap: 8,
-    paddingTop: 10,
-    borderTopWidth: 1,
-    borderTopColor: '#F1F5F9',
-  },
   addressText: {
     fontSize: 12,
     color: colors.textMuted,
     fontWeight: '600',
+    marginBottom: 12,
+  },
+  actionButtonsRow: {
+    flexDirection: 'row',
+    gap: 10,
+    paddingTop: 10,
+    borderTopWidth: 1,
+    borderTopColor: '#F1F5F9',
+  },
+  changeSlotButton: {
+    flex: 1,
+    backgroundColor: '#F8FAFC',
+    borderRadius: 12,
+    paddingVertical: 10,
+    paddingHorizontal: 10,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1.5,
+    borderColor: '#CBD5E1',
+  },
+  changeSlotButtonText: {
+    fontSize: 12,
+    fontWeight: '800',
+    color: colors.text,
   },
   mapsButton: {
+    flex: 1,
     backgroundColor: '#FFFFFF',
     borderRadius: 12,
     paddingVertical: 10,
-    paddingHorizontal: 14,
+    paddingHorizontal: 10,
     alignItems: 'center',
     justifyContent: 'center',
     borderWidth: 1.5,
     borderColor: colors.primary,
-    shadowColor: colors.primaryDark,
-    shadowOpacity: 0.08,
-    shadowOffset: { width: 0, height: 2 },
-    shadowRadius: 4,
-    elevation: 2,
   },
   mapsButtonText: {
-    fontSize: 13,
+    fontSize: 12,
     fontWeight: '800',
     color: colors.primary,
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(15, 23, 42, 0.65)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
+  },
+  modalCard: {
+    width: '100%',
+    maxWidth: 420,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 24,
+    padding: 20,
+    shadowColor: '#0F172A',
+    shadowOpacity: 0.25,
+    shadowOffset: { width: 0, height: 10 },
+    shadowRadius: 20,
+    elevation: 8,
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  modalTitle: {
+    fontSize: 20,
+    fontWeight: '800',
+    color: colors.text,
+  },
+  modalCloseBtn: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: '#F1F5F9',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  modalCloseBtnText: {
+    fontSize: 15,
+    fontWeight: '800',
+    color: colors.textMuted,
+  },
+  modalSubtitle: {
+    fontSize: 13,
+    color: colors.textMuted,
+    lineHeight: 19,
+    marginBottom: 16,
+  },
+  modalHighlight: {
+    color: colors.primary,
+    fontWeight: '700',
+  },
+  modalErrorBox: {
+    backgroundColor: '#FEF2F2',
+    borderRadius: 12,
+    padding: 10,
+    marginBottom: 12,
+    borderWidth: 1,
+    borderColor: '#FECACA',
+  },
+  modalErrorText: {
+    fontSize: 12,
+    color: colors.danger,
+    fontWeight: '600',
+  },
+  modalOptionsContainer: {
+    gap: 12,
+  },
+  modalOptionButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#F8FAFC',
+    borderRadius: 16,
+    padding: 14,
+    borderWidth: 1.5,
+    borderColor: '#CBD5E1',
+    gap: 12,
+  },
+  modalOptionButtonPressed: {
+    backgroundColor: '#EEF4FF',
+    borderColor: colors.primary,
+  },
+  optionIconWrap: {
+    width: 44,
+    height: 44,
+    borderRadius: 14,
+    backgroundColor: '#FFFFFF',
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+  },
+  optionIcon: {
+    fontSize: 22,
+  },
+  optionTextWrap: {
+    flex: 1,
+  },
+  optionTitle: {
+    fontSize: 14,
+    fontWeight: '800',
+    color: colors.text,
+    marginBottom: 2,
+  },
+  optionDesc: {
+    fontSize: 12,
+    color: colors.textMuted,
+    lineHeight: 16,
+  },
+  modalLoadingContainer: {
+    alignItems: 'center',
+    paddingVertical: 24,
+    gap: 10,
+  },
+  modalLoadingTitle: {
+    fontSize: 17,
+    fontWeight: '800',
+    color: colors.text,
+    marginTop: 6,
+  },
+  modalLoadingSubtitle: {
+    fontSize: 13,
+    color: colors.textMuted,
+    textAlign: 'center',
+    lineHeight: 18,
+    paddingHorizontal: 10,
   },
 });

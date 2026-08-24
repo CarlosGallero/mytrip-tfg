@@ -3,7 +3,7 @@ import { GenerateTripRequest, TripResponse } from '../types';
 
 /**
  * Genera un itinerario 100% personalizado mediante IA (Gemini)
- * enriquecido con imágenes reales de Wikipedia y enlaces de Google Maps.
+ * enriquecido con enlaces de Google Maps.
  */
 export async function generateTripItinerary(
   request: GenerateTripRequest
@@ -11,6 +11,26 @@ export async function generateTripItinerary(
   return apiCall<TripResponse>('/trips/generate', {
     method: 'POST',
     body: JSON.stringify(request),
+  });
+}
+
+/**
+ * Regenera una actividad o restaurante individual de un día manteniendo
+ * la optimización geográfica, presupuesto, accesibilidad y dietas.
+ */
+export async function regenerateTripSlot(
+  tripId: string,
+  dayNumber: number,
+  slotIndex: number,
+  replacementType: 'activity' | 'restaurant' | 'breakfast_cafe' | string
+): Promise<TripResponse> {
+  return apiCall<TripResponse>(`/trips/${tripId}/regenerate-slot`, {
+    method: 'POST',
+    body: JSON.stringify({
+      day_number: dayNumber,
+      slot_index: slotIndex,
+      replacement_type: replacementType,
+    }),
   });
 }
 

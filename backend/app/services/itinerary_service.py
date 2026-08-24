@@ -363,3 +363,189 @@ Responde ÚNICAMENTE con un objeto JSON válido con la siguiente estructura exac
             return False
         result = await db["trips"].delete_one({"_id": ObjectId(trip_id), "user_id": user_id})
         return result.deleted_count > 0
+
+    @classmethod
+    async def regenerate_slot(
+        cls,
+        trip_id: str,
+        day_number: int,
+        slot_index: int,
+        replacement_type: str,
+        user_id: str,
+        db: Any
+    ) -> Optional[TripResponse]:
+        """
+        Regenera una actividad o restaurante individual de un día manteniendo la
+        optimización de zona/distancia, presupuesto, accesibilidad y preferencias dietéticas.
+        """
+        if not ObjectId.is_valid(trip_id):
+            return None
+
+        trip_doc = await db["trips"].find_one({"_id": ObjectId(trip_id), "user_id": user_id})
+        if not trip_doc:
+            return None
+
+        days = trip_doc.get("days", [])
+        day_idx = next((i for i, d in enumerate(days) if d.get("day_number") == day_number), None)
+        if day_idx is None:
+            return None
+
+        target_day = days[day_idx]
+        slots = target_day.get("slots", [])
+        if slot_index < 0 or slot_index >= len(slots):
+            return None
+
+        current_slot = slots[slot_index]
+        city_name = trip_doc.get("destination_city", trip_doc.get("destination", ""))
+        country_name = trip_doc.get("country_name", "España")
+        zone_name = target_day.get("zone_name", f"Centro de {city_name}")
+        time_slot = current_slot.get("time_slot", "morning")
+        time_range = current_slot.get("time_range", "10:00 - 12:30")
+        current_title = current_slot.get("title", "")
+        currency = trip_doc.get("currency", "EUR")
+
+        # Recopilar todos los títulos actuales del viaje para no repetir
+        existing_titles = []
+        for d in days:
+            for s in d.get("slots", []):
+                existing_titles.append(s.get("title", ""))
+
+        has_mobility = trip_doc.get("has_mobility_issues", False)
+        diets = trip_doc.get("dietary_preferences", [])
+        health = trip_doc.get("health_conditions", [])
+        interests = trip_doc.get("interests", [])
+
+        # Definir qué tipo de reemplazo se solicita
+        if replacement_type == "breakfast_cafe":
+            type_desc = f"un BAR O CAFETERÍA tradicional / cafetería de especialidad para DESAYUNAR en {zone_name}"
+            target_type = "restaurant"
+            cost_hint = "Coste estimado por persona: entre 3€ y 9€"
+        elif replacement_type == "restaurant":
+            type_desc = f"un RESTAURANTE, MESÓN O TABERNA para comer/cenar en {zone_name}"
+            target_type = "restaurant"
+            cost_hint = "Coste estimado por persona coherente con almuerzo o cena (15€ - 30€)"
+        else:
+            type_desc = f"una ACTIVIDAD CULTURAL, MONUMENTO, MUSEO, PARQUE O PASEO TURÍSTICO en {zone_name}"
+            target_type = "activity"
+            cost_hint = "Coste estimado de entrada o actividad por persona (0€ a 15€)"
+
+        mobility_rule = (
+            "Accesibilidad obligatoria: 100% adaptado a silla de ruedas o personas con movilidad reducida (a cota cero, rampas o ascensor)."
+            if has_mobility
+            else "Accesibilidad estándar."
+        )
+
+        diet_rule = (
+            f"Dietas o alergias del viajero: {', '.join(diets)}. Si es bar/restaurante, DEBE contar con opciones para esta dieta."
+            if diets
+            else "Dieta: Estándar (gastronomía local)."
+        )
+
+        prompt = f"""
+Eres un guía turístico local experto en "{city_name}" ({country_name}).
+El usuario desea CAMBIAR la parada actual de su itinerario:
+- Parada a reemplazar: "{current_title}" ({time_range}, franja: {time_slot})
+- Zona geográfica obligatoria: "{zone_name}" ({city_name})
+- Tipo de reemplazo solicitado: {type_desc}
+
+REQUISITOS ESTRICTOS:
+1. OPTIMIZACIÓN GEOGRÁFICA: El nuevo lugar DEBE estar situado DENTRO de la misma zona/barrio ("{zone_name}") para no romper la ruta optimizada a pie de ese día.
+2. {mobility_rule}
+3. {diet_rule}
+4. {cost_hint}
+5. NO REPETIR ninguno de los siguientes lugares ya presentes en el viaje: {', '.join(existing_titles)}.
+6. MOTIVOS DE SELECCIÓN ('selection_reasons'): Deben ser ETIQUETAS SÚPER BREVES de 1 a 4 palabras (como badges o tags). NUNCA oraciones largas ni explicaciones en párrafo.
+   Ejemplos obligatorios de formato: ["Opciones vegetarianas", "Desayuno tradicional", "En el mismo barrio", "Accesible", "Entrada gratis"].
+
+Genera una ÚNICA alternativa atractiva y real. Responde ÚNICAMENTE con un objeto JSON válido:
+{{
+  "time_slot": "{time_slot}",
+  "time_range": "{time_range}",
+  "title": "Nombre oficial y real del nuevo lugar o establecimiento en {city_name}",
+  "type": "{target_type}",
+  "description": "Descripción detallada y amena del lugar y la experiencia propuesta (2 frases).",
+  "estimated_cost": (float con el coste estimado por persona en {currency}),
+  "currency": "{currency}",
+  "address": "Dirección real aproximada en {zone_name}, {city_name}",
+  "selection_reasons": ["Motivo breve 1", "Motivo breve 2"]
+}}
+"""
+
+        api_key = settings.GEMINI_API_KEY
+        if not api_key:
+            raise ValueError("GEMINI_API_KEY no configurada en el backend.")
+
+        client = genai.Client(api_key=api_key)
+        new_slot_dict = None
+        last_err = None
+
+        for model_name in AVAILABLE_MODELS:
+            try:
+                response = client.models.generate_content(
+                    model=model_name,
+                    contents=prompt,
+                    config=types.GenerateContentConfig(
+                        response_mime_type="application/json",
+                        temperature=0.2
+                    )
+                )
+                if response and response.text:
+                    clean_text = cls._clean_json_text(response.text)
+                    new_slot_dict = json.loads(clean_text)
+                    if new_slot_dict and "title" in new_slot_dict:
+                        break
+            except Exception as e:
+                logger.warning(f"Error regenerando slot con modelo {model_name}: {e}")
+                last_err = e
+                continue
+
+        if not new_slot_dict:
+            raise RuntimeError(f"No se pudo generar la alternativa con IA: {last_err}")
+
+        # Enriquecer con Google Maps search link
+        new_title = str(new_slot_dict.get("title", "Nueva actividad")).strip()
+        new_slot_dict["title"] = new_title
+        new_slot_dict["maps_url"] = get_google_maps_url(new_title, city_name)
+        new_slot_dict["image_url"] = None
+        new_slot_dict["time_slot"] = time_slot
+        new_slot_dict["time_range"] = time_range
+        new_slot_dict["currency"] = currency
+        new_slot_dict["estimated_cost"] = float(new_slot_dict.get("estimated_cost", current_slot.get("estimated_cost", 0.0)))
+
+        # Sanitizar motivos de selección para que sean etiquetas cortas
+        raw_reasons = new_slot_dict.get("selection_reasons", ["Alternativa personalizada"])
+        clean_reasons = []
+        for r in raw_reasons:
+            r_str = str(r).strip()
+            if len(r_str) > 35:
+                r_str = r_str[:32] + "..."
+            if r_str:
+                clean_reasons.append(r_str)
+        new_slot_dict["selection_reasons"] = clean_reasons or ["Alternativa recomendada"]
+
+        # Actualizar en la estructura del viaje
+        days[day_idx]["slots"][slot_index] = new_slot_dict
+
+        # Recalcular costes
+        day_total = sum(float(s.get("estimated_cost", 0.0)) for s in days[day_idx]["slots"])
+        days[day_idx]["daily_estimated_cost"] = day_total
+        trip_total = sum(float(d.get("daily_estimated_cost", 0.0)) for d in days)
+
+        now = datetime.utcnow()
+        await db["trips"].update_one(
+            {"_id": ObjectId(trip_id)},
+            {
+                "$set": {
+                    "days": days,
+                    "total_estimated_cost": trip_total,
+                    "updated_at": now
+                }
+            }
+        )
+
+        trip_doc["days"] = days
+        trip_doc["total_estimated_cost"] = trip_total
+        trip_doc["updated_at"] = now
+        trip_doc["id"] = str(trip_doc["_id"])
+
+        return TripResponse(**trip_doc)

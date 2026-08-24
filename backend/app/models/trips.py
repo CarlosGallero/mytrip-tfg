@@ -49,6 +49,11 @@ class GenerateTripRequest(BaseModel):
     global_pace: Optional[str] = Field(default="moderate")
     daily_pace: Optional[List[DayPaceItem]] = Field(default_factory=list)
 
+class RegenerateSlotRequest(BaseModel):
+    day_number: int = Field(..., description="Número de día (1, 2, 3...)")
+    slot_index: int = Field(..., description="Índice del slot dentro del día")
+    replacement_type: str = Field(..., description="Tipo de reemplazo deseado: 'activity', 'restaurant', 'breakfast_cafe'")
+
 class TripResponse(BaseModel):
     id: str
     user_id: str
