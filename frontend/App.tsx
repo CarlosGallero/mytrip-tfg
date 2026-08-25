@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 
-import { getCurrentUser, isAuthenticated, logoutUser, type UserProfile } from './src/api/auth';
+import { getCurrentUser, logoutUser, type UserProfile } from './src/api/auth';
 import AuthScreen from './src/screens/auth/AuthScreen';
 import CreateTripWizardScreen from './src/screens/trip/CreateTripWizardScreen';
 import ItineraryDetailScreen from './src/screens/itinerary/ItineraryDetailScreen';
@@ -25,11 +25,14 @@ function AuthenticatedApp({ onLogout }: { onLogout: () => void }) {
       const currentUser = await getCurrentUser();
       if (currentUser) {
         setProfile(currentUser);
+      } else {
+        // Si el token es inválido o no se puede cargar el usuario, redirigir a login
+        onLogout();
       }
     };
 
     loadUser();
-  }, []);
+  }, [onLogout]);
 
   // Pantalla de Detalle de Itinerario generado
   if (activeTrip) {
@@ -108,8 +111,11 @@ export default function App() {
   useEffect(() => {
     const checkAuth = async () => {
       try {
-        const result = await isAuthenticated();
-        setAuthenticated(result);
+        // Al arrancar la aplicación, limpiamos cualquier sesión residual previa
+        // para garantizar que la pantalla inicial sea SIEMPRE la de Inicio de Sesión
+        // y solo se pueda acceder a Perfil o Mis Viajes tras autenticarse explícitamente.
+        await logoutUser();
+        setAuthenticated(false);
       } finally {
         setLoading(false);
       }

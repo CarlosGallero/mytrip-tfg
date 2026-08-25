@@ -462,13 +462,13 @@ export default function AuthScreen({ onLoginSuccess }: AuthScreenProps) {
                   <View style={styles.currencyCard}>
                     <View style={styles.currencyLeft}>
                       <View style={styles.currencyIcon}>
-                        <Text style={styles.currencyIconText}></Text>
+                        <Text style={styles.currencyIconText}>{currencyInfo.symbol || '💱'}</Text>
                       </View>
                       <View>
                         <Text style={styles.currencyText}>
                           {currencyInfo.code} — {currencyInfo.name}
                         </Text>
-                        <Text style={styles.currencyHint}>Auto-detectado</Text>
+                        <Text style={styles.currencyHint}>Auto-detectado para {selectedCountry}</Text>
                       </View>
                     </View>
 
