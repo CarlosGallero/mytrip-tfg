@@ -242,14 +242,9 @@ export default function ProfileScreen({ user, onProfileUpdated, onLogout }: Prof
 
           <View style={styles.fieldGroup}>
             <Text style={styles.label}>País</Text>
-            <Pressable
-              onPress={() => setCountryModalVisible(true)}
-              style={[styles.input, styles.countrySelector, errors.country_of_residence && styles.inputError]}
-            >
-              <Text style={[styles.countryText, !country && { color: colors.textMuted }]}>{country || 'Selecciona un país'}</Text>
-              <Text style={styles.countryChevron}>▾</Text>
-            </Pressable>
-            {errors.country_of_residence ? <Text style={styles.errorText}>{errors.country_of_residence}</Text> : null}
+            <View style={[styles.input, styles.countrySelector]}>
+              <Text style={styles.countryText}>{country || 'España'}</Text>
+            </View>
           </View>
 
           <View style={styles.passwordRow}>

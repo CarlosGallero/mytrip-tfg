@@ -1,6 +1,7 @@
 import React, { useMemo, useState } from 'react';
 import {
   ActivityIndicator,
+  Modal,
   Pressable,
   SafeAreaView,
   ScrollView,
@@ -46,6 +47,9 @@ export default function CreateTripWizardScreen({
   const [destination, setDestination] = useState('');
   const [countryInfo, setCountryInfo] = useState<DestinationTravelInfo | null>(null);
   const [hasPassport, setHasPassport] = useState<boolean | null>(null);
+
+  // Modal de confirmación para salir a Mis Viajes
+  const [showExitConfirmModal, setShowExitConfirmModal] = useState(false);
 
   // Paso 3: Fechas y Presupuesto
   const [startDate, setStartDate] = useState<string | null>(null);
@@ -625,12 +629,12 @@ export default function CreateTripWizardScreen({
       <View style={styles.container}>
         <View style={styles.headerRow}>
           <Pressable
-            onPress={handleBack}
+            onPress={() => setShowExitConfirmModal(true)}
             style={styles.cancelButton}
             disabled={isLoadingCountryInfo || isGeneratingItinerary}
           >
             <Text style={styles.cancelText}>
-              {currentStep > 1 ? '← Atrás' : 'Cancelar'}
+              ← Volver a Mis Viajes
             </Text>
           </Pressable>
 
@@ -653,31 +657,31 @@ export default function CreateTripWizardScreen({
 
             {currentStep === 3 && (
               <Pressable onPress={() => setCurrentStep(2)} style={styles.secondaryButton}>
-                <Text style={styles.secondaryButtonText}>Ver requisitos</Text>
+                <Text style={styles.secondaryButtonText}>← ATRÁS</Text>
               </Pressable>
             )}
 
             {currentStep === 4 && (
               <Pressable onPress={() => setCurrentStep(3)} style={styles.secondaryButton}>
-                <Text style={styles.secondaryButtonText}>Modificar fechas</Text>
+                <Text style={styles.secondaryButtonText}>← ATRÁS</Text>
               </Pressable>
             )}
 
             {currentStep === 5 && (
               <Pressable onPress={() => setCurrentStep(4)} style={styles.secondaryButton}>
-                <Text style={styles.secondaryButtonText}>Editar salud</Text>
+                <Text style={styles.secondaryButtonText}>← ATRÁS</Text>
               </Pressable>
             )}
 
             {currentStep === 6 && (
               <Pressable onPress={() => setCurrentStep(5)} style={styles.secondaryButton}>
-                <Text style={styles.secondaryButtonText}>Editar intereses</Text>
+                <Text style={styles.secondaryButtonText}>← ATRÁS</Text>
               </Pressable>
             )}
 
             {currentStep === 7 && (
               <Pressable onPress={() => setCurrentStep(6)} style={styles.secondaryButton}>
-                <Text style={styles.secondaryButtonText}>Modificar ritmo</Text>
+                <Text style={styles.secondaryButtonText}>← ATRÁS</Text>
               </Pressable>
             )}
 
@@ -694,6 +698,46 @@ export default function CreateTripWizardScreen({
             </Pressable>
           </View>
         )}
+
+        {/* MODAL DE CONFIRMACIÓN PARA SALIR A MIS VIAJES */}
+        <Modal
+          visible={showExitConfirmModal}
+          transparent
+          animationType="fade"
+          onRequestClose={() => setShowExitConfirmModal(false)}
+        >
+          <View style={styles.exitModalOverlay}>
+            <View style={styles.exitModalCard}>
+              <View style={styles.exitModalIconWrap}>
+                <Text style={styles.exitModalIconText}>⚠️</Text>
+              </View>
+
+              <Text style={styles.exitModalTitle}>¿Volver a la pantalla de tus viajes?</Text>
+              <Text style={styles.exitModalSubtitle}>
+                Se perderá el progreso.
+              </Text>
+
+              <View style={styles.exitModalButtonsRow}>
+                <Pressable
+                  onPress={() => setShowExitConfirmModal(false)}
+                  style={styles.exitModalCancelBtn}
+                >
+                  <Text style={styles.exitModalCancelBtnText}>Continuar itinerario</Text>
+                </Pressable>
+
+                <Pressable
+                  onPress={() => {
+                    setShowExitConfirmModal(false);
+                    onCancel?.();
+                  }}
+                  style={styles.exitModalConfirmBtn}
+                >
+                  <Text style={styles.exitModalConfirmBtnText}>Sí, salir</Text>
+                </Pressable>
+              </View>
+            </View>
+          </View>
+        </Modal>
       </View>
     </SafeAreaView>
   );
@@ -1023,5 +1067,91 @@ const styles = StyleSheet.create({
     color: colors.text,
     fontSize: 15,
     fontWeight: '700',
+  },
+  exitModalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(15, 23, 42, 0.65)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
+  },
+  exitModalCard: {
+    width: '100%',
+    maxWidth: 380,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 24,
+    padding: 22,
+    alignItems: 'center',
+    shadowColor: '#0F172A',
+    shadowOpacity: 0.25,
+    shadowOffset: { width: 0, height: 10 },
+    shadowRadius: 20,
+    elevation: 8,
+  },
+  exitModalIconWrap: {
+    width: 60,
+    height: 60,
+    borderRadius: 30,
+    backgroundColor: '#FEF2F2',
+    borderWidth: 1,
+    borderColor: '#FECACA',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 14,
+  },
+  exitModalIconText: {
+    fontSize: 26,
+  },
+  exitModalTitle: {
+    fontSize: 18,
+    fontWeight: '800',
+    color: colors.text,
+    textAlign: 'center',
+    marginBottom: 8,
+  },
+  exitModalSubtitle: {
+    fontSize: 14,
+    color: colors.textMuted,
+    textAlign: 'center',
+    lineHeight: 20,
+    marginBottom: 20,
+  },
+  exitModalButtonsRow: {
+    flexDirection: 'row',
+    gap: 12,
+    width: '100%',
+  },
+  exitModalCancelBtn: {
+    flex: 1,
+    backgroundColor: '#F8FAFC',
+    borderRadius: 14,
+    paddingVertical: 13,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1.5,
+    borderColor: '#CBD5E1',
+  },
+  exitModalCancelBtnText: {
+    fontSize: 14,
+    fontWeight: '800',
+    color: colors.text,
+  },
+  exitModalConfirmBtn: {
+    flex: 1,
+    backgroundColor: colors.danger,
+    borderRadius: 14,
+    paddingVertical: 13,
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: colors.danger,
+    shadowOpacity: 0.25,
+    shadowOffset: { width: 0, height: 4 },
+    shadowRadius: 8,
+    elevation: 3,
+  },
+  exitModalConfirmBtnText: {
+    fontSize: 14,
+    fontWeight: '800',
+    color: colors.white,
   },
 });
