@@ -284,7 +284,7 @@ export default function ItineraryDetailScreen({
                   📍 {currentTrip.destination_city}
                 </Text>
                 <Text style={styles.heroDates}>
-                  🗓️ {currentTrip.start_date} al {currentTrip.end_date}
+                  FECHA: {currentTrip.start_date} al {currentTrip.end_date}
                 </Text>
               </View>
               <View style={styles.budgetBadgeContainer}>

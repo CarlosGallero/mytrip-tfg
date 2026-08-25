@@ -183,7 +183,7 @@ export default function MyTripsScreen({
 
             <View style={styles.tripDatesRow}>
               <Text style={styles.tripDates}>
-                🗓️ {item.start_date} al {item.end_date}
+                FECHA: {item.start_date} al {item.end_date}
               </Text>
               <Text style={styles.tripBudget}>
                 💰 ~{item.total_estimated_cost.toFixed(0)} {item.currency}
