@@ -66,7 +66,7 @@ function AuthenticatedApp({ onLogout }: { onLogout: () => void }) {
           ]}
         >
           <Text style={[styles.tabText, activeTab === 'trips' && styles.tabTextActive]}>
-            ✈️ Mis Viajes
+            Mis Viajes
           </Text>
         </Pressable>
 
@@ -79,7 +79,7 @@ function AuthenticatedApp({ onLogout }: { onLogout: () => void }) {
           ]}
         >
           <Text style={[styles.tabText, activeTab === 'profile' && styles.tabTextActive]}>
-            👤 Perfil
+            Perfil
           </Text>
         </Pressable>
       </View>
