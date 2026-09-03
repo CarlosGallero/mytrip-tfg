@@ -60,10 +60,16 @@ const initialRegisterForm: RegisterFormState = {
 
 type AuthScreenProps = {
   onLoginSuccess?: () => void;
+  initialMode?: AuthMode;
+  onBack?: () => void;
 };
 
-export default function AuthScreen({ onLoginSuccess }: AuthScreenProps) {
-  const [mode, setMode] = useState<AuthMode>('login');
+export default function AuthScreen({
+  onLoginSuccess,
+  initialMode = 'login',
+  onBack,
+}: AuthScreenProps) {
+  const [mode, setMode] = useState<AuthMode>(initialMode);
   const [loginForm, setLoginForm] = useState<LoginFormState>(initialLoginForm);
   const [registerForm, setRegisterForm] = useState<RegisterFormState>(initialRegisterForm);
   const [selectedCountry, setSelectedCountry] = useState('España');
@@ -71,6 +77,12 @@ export default function AuthScreen({ onLoginSuccess }: AuthScreenProps) {
   const [searchTerm, setSearchTerm] = useState('');
   const [countryModalVisible, setCountryModalVisible] = useState(false);
   const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    if (initialMode) {
+      setMode(initialMode);
+    }
+  }, [initialMode]);
   
   // Estado de errores por campo
   const [errors, setErrors] = useState<FieldErrors>({});
@@ -282,10 +294,18 @@ export default function AuthScreen({ onLoginSuccess }: AuthScreenProps) {
               <View style={styles.heroDecorBottom} />
 
               <View style={styles.brandRow}>
-                <View style={styles.brandMark}>
-                  <Text style={styles.brandMarkText}>✦</Text>
+                <View style={styles.brandLeft}>
+                  <View style={styles.brandMark}>
+                    <Text style={styles.brandMarkText}>✦</Text>
+                  </View>
+                  <Text style={styles.brandText}>MyTrip</Text>
                 </View>
-                <Text style={styles.brandText}>MyTrip</Text>
+
+                {onBack && (
+                  <Pressable onPress={onBack} style={styles.backButtonTop}>
+                    <Text style={styles.backButtonTopText}>← Inicio</Text>
+                  </Pressable>
+                )}
               </View>
 
               <Text style={styles.heroTitle}>
@@ -636,8 +656,26 @@ const styles = StyleSheet.create({
   brandRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 12,
+    justifyContent: 'space-between',
     marginBottom: theme.spacing.xl,
+  },
+  brandLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  backButtonTop: {
+    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.3)',
+  },
+  backButtonTopText: {
+    color: colors.white,
+    fontSize: 13,
+    fontWeight: '800',
   },
   brandMark: {
     width: 48,
@@ -645,6 +683,7 @@ const styles = StyleSheet.create({
     borderRadius: 24,
     backgroundColor: 'rgba(255,255,255,0.18)',
     alignItems: 'center',
+    justifyContent: 'center',
   },
   brandMarkText: {
     color: colors.white,
@@ -656,7 +695,6 @@ const styles = StyleSheet.create({
     fontSize: 24,
     fontWeight: '800',
     letterSpacing: -0.4,
-    flex: 1,
   },
   heroTitle: {
     color: colors.white,

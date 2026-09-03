@@ -3,6 +3,7 @@ import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-nati
 import { StatusBar } from 'expo-status-bar';
 
 import { getCurrentUser, logoutUser, type UserProfile } from './src/api/auth';
+import WelcomeScreen from './src/screens/welcome/WelcomeScreen';
 import AuthScreen from './src/screens/auth/AuthScreen';
 import CreateTripWizardScreen from './src/screens/trip/CreateTripWizardScreen';
 import ItineraryDetailScreen from './src/screens/itinerary/ItineraryDetailScreen';
@@ -107,15 +108,18 @@ function AuthenticatedApp({ onLogout }: { onLogout: () => void }) {
 export default function App() {
   const [authenticated, setAuthenticated] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [authView, setAuthView] = useState<'welcome' | 'auth'>('welcome');
+  const [authMode, setAuthMode] = useState<'login' | 'register'>('login');
 
   useEffect(() => {
     const checkAuth = async () => {
       try {
         // Al arrancar la aplicación, limpiamos cualquier sesión residual previa
-        // para garantizar que la pantalla inicial sea SIEMPRE la de Inicio de Sesión
+        // para garantizar que la pantalla inicial de bienvenida sea SIEMPRE la primera que vea el usuario
         // y solo se pueda acceder a Perfil o Mis Viajes tras autenticarse explícitamente.
         await logoutUser();
         setAuthenticated(false);
+        setAuthView('welcome');
       } finally {
         setLoading(false);
       }
@@ -127,6 +131,7 @@ export default function App() {
   const handleLogout = async () => {
     await logoutUser();
     setAuthenticated(false);
+    setAuthView('welcome');
   };
 
   if (loading) {
@@ -148,8 +153,23 @@ export default function App() {
     <>
       {authenticated ? (
         <AuthenticatedApp onLogout={handleLogout} />
+      ) : authView === 'welcome' ? (
+        <WelcomeScreen
+          onLogin={() => {
+            setAuthMode('login');
+            setAuthView('auth');
+          }}
+          onRegister={() => {
+            setAuthMode('register');
+            setAuthView('auth');
+          }}
+        />
       ) : (
-        <AuthScreen onLoginSuccess={() => setAuthenticated(true)} />
+        <AuthScreen
+          initialMode={authMode}
+          onBack={() => setAuthView('welcome')}
+          onLoginSuccess={() => setAuthenticated(true)}
+        />
       )}
       <StatusBar style="dark" />
     </>
