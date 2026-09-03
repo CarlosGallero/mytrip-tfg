@@ -1,5 +1,6 @@
 import React, { useMemo, useState } from 'react';
 import {
+  Modal,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -47,6 +48,8 @@ export default function TripDateBudgetStep({
     }
     return new Date(today.getFullYear(), today.getMonth(), 1);
   });
+
+  const [showFoodInfoModal, setShowFoodInfoModal] = useState(false);
 
   const dailyCostInfo = countryInfo?.estimated_daily_cost;
   const currencySymbol = dailyCostInfo?.currency || 'EUR';
@@ -280,7 +283,16 @@ export default function TripDateBudgetStep({
 
             <View style={styles.aiBreakdownRow}>
               <View style={styles.aiBreakdownItem}>
-                <Text style={styles.aiBreakdownLabel}>🍽️ Desayuno + 1 Comida</Text>
+                <View style={styles.foodLabelWithInfoRow}>
+                  <Text style={styles.aiBreakdownLabel}>🍽️ Comida y Desayuno</Text>
+                  <Pressable
+                    onPress={() => setShowFoodInfoModal(true)}
+                    style={styles.moreInfoBadge}
+                    hitSlop={8}
+                  >
+                    <Text style={styles.moreInfoBadgeText}>+info</Text>
+                  </Pressable>
+                </View>
                 <Text style={styles.aiBreakdownValue}>~{dailyCostInfo.food_daily_cost.toFixed(0)} {currencySymbol}/día</Text>
               </View>
               <View style={styles.aiBreakdownItem}>
@@ -335,6 +347,39 @@ export default function TripDateBudgetStep({
           </View>
         </View>
       </View>
+
+      {/* MODAL DE INFORMACIÓN DEL PRECIO DE COMIDA (+INFO) */}
+      <Modal
+        visible={showFoodInfoModal}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setShowFoodInfoModal(false)}
+      >
+        <View style={styles.infoModalOverlay}>
+          <View style={styles.infoModalCard}>
+            <View style={styles.infoModalIconWrap}>
+              <Text style={styles.infoModalIconText}>🍽️</Text>
+            </View>
+
+            <Text style={styles.infoModalTitle}>Estimación de comidas</Text>
+
+            <Text style={styles.infoModalBody}>
+              El presupuesto estimado por la IA corresponde al precio de un <Text style={styles.infoModalHighlight}>restaurante promedio</Text> en {cityName}.
+            </Text>
+
+            <Text style={styles.infoModalNote}>
+              Ten en cuenta que existen opciones gastronómicas mucho más caras (restaurantes gourmet o alta cocina), así como sitios de comida rápida y tabernas más baratos.
+            </Text>
+
+            <Pressable
+              onPress={() => setShowFoodInfoModal(false)}
+              style={styles.infoModalButton}
+            >
+              <Text style={styles.infoModalButtonText}>Entendido</Text>
+            </Pressable>
+          </View>
+        </View>
+      </Modal>
     </ScrollView>
   );
 }
@@ -618,6 +663,102 @@ const styles = StyleSheet.create({
     lineHeight: 18,
   },
   boldText: {
+    fontWeight: '800',
+  },
+  foodLabelWithInfoRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    marginBottom: 4,
+  },
+  moreInfoBadge: {
+    backgroundColor: '#EEF4FF',
+    paddingHorizontal: 7,
+    paddingVertical: 2,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#C7D7FE',
+  },
+  moreInfoBadgeText: {
+    fontSize: 10,
+    fontWeight: '800',
+    color: colors.primary,
+  },
+  infoModalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(15, 23, 42, 0.65)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
+  },
+  infoModalCard: {
+    width: '100%',
+    maxWidth: 380,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 24,
+    padding: 22,
+    alignItems: 'center',
+    shadowColor: '#0F172A',
+    shadowOpacity: 0.25,
+    shadowOffset: { width: 0, height: 10 },
+    shadowRadius: 20,
+    elevation: 8,
+  },
+  infoModalIconWrap: {
+    width: 60,
+    height: 60,
+    borderRadius: 30,
+    backgroundColor: '#EEF4FF',
+    borderWidth: 1,
+    borderColor: '#C7D7FE',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 14,
+  },
+  infoModalIconText: {
+    fontSize: 26,
+  },
+  infoModalTitle: {
+    fontSize: 18,
+    fontWeight: '800',
+    color: colors.text,
+    textAlign: 'center',
+    marginBottom: 10,
+  },
+  infoModalBody: {
+    fontSize: 14,
+    color: colors.text,
+    textAlign: 'center',
+    lineHeight: 20,
+    marginBottom: 10,
+  },
+  infoModalHighlight: {
+    fontWeight: '800',
+    color: colors.primary,
+  },
+  infoModalNote: {
+    fontSize: 13,
+    color: colors.textMuted,
+    textAlign: 'center',
+    lineHeight: 19,
+    marginBottom: 20,
+  },
+  infoModalButton: {
+    width: '100%',
+    backgroundColor: colors.primary,
+    borderRadius: 14,
+    paddingVertical: 13,
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: colors.primaryDark,
+    shadowOpacity: 0.2,
+    shadowOffset: { width: 0, height: 4 },
+    shadowRadius: 8,
+    elevation: 3,
+  },
+  infoModalButtonText: {
+    color: colors.white,
+    fontSize: 15,
     fontWeight: '800',
   },
 });
