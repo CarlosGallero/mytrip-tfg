@@ -25,6 +25,7 @@ interface TripPreferencesPlacesStepProps {
 
 const PREDEFINED_INTERESTS = [
   { id: 'Indiferente', label: '✨ Indiferente' },
+  { id: 'Actividades para niños', label: '🎠 Actividades para niños' },
   { id: 'Historia y patrimonio', label: '🏛️ Historia y patrimonio' },
   { id: 'Música y arte', label: '🎨 Música y arte' },
   { id: 'Naturaleza y senderismo', label: '🌲 Naturaleza y senderismo' },

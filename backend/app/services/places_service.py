@@ -47,7 +47,30 @@ class PlacesService:
             return []
 
         # Construir query según categoría solicitada
-        if category == "breakfast_cafe":
+        if category.startswith("diet:"):
+            raw_diet = category.split(":", 1)[1].strip()
+            diet_lower = raw_diet.lower()
+            if "vegan" in diet_lower:
+                clean_diet = "veganos y restaurantes con opciones veganas"
+            elif "vegetar" in diet_lower:
+                clean_diet = "vegetarianos y restaurantes con opciones vegetarianas"
+            elif "gluten" in diet_lower or "celia" in diet_lower:
+                clean_diet = "sin gluten y restaurantes aptos para celiacos"
+            elif "lactos" in diet_lower:
+                clean_diet = "sin lactosa"
+            elif "halal" in diet_lower:
+                clean_diet = "halal"
+            elif "kosher" in diet_lower:
+                clean_diet = "kosher"
+            elif "pescatar" in diet_lower:
+                clean_diet = "pescados y mariscos frescos"
+            else:
+                clean_diet = raw_diet
+
+            query_text = f"mejores restaurantes {clean_diet} en {clean_city}"
+        elif category in ("kids_activities", "kids", "family"):
+            query_text = f"atracciones para niños, acuarios, parques infantiles, museos interactivos de ciencias y actividades para familias en {clean_city}"
+        elif category == "breakfast_cafe":
             query_text = f"cafeterias de especialidad y bares de desayuno en {clean_zone}, {clean_city}"
         elif category == "restaurant":
             query_text = f"mejores restaurantes, mesones y tabernas en {clean_zone}, {clean_city}"

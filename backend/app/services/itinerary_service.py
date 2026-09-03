@@ -122,15 +122,33 @@ class ItineraryService:
             else "Salud: Sin condiciones especiales."
         )
 
+        interests_list = (req.interests or []) + (req.custom_interests or [])
+        has_kids_activities = any(
+            "niño" in i.lower() or "infantil" in i.lower() or "familia" in i.lower()
+            for i in interests_list
+        )
+
         diet_clause = (
-            f"🚨 PREFERENCIAS DIETÉTICAS O ALERGIAS: {', '.join(req.dietary_preferences)}. "
-            "Cada restaurante propuesto (almuerzos y cenas) DEBE contar obligatoriamente con opciones de alta calidad para esta dieta "
-            f"y reflejarlo en sus motivos de selección (ej. 'Menú con opciones {req.dietary_preferences[0]}')."
+            f"🚨🚨 PRIORIDAD CRÍTICA - ALIMENTACIÓN OBLIGATORIA ({', '.join(req.dietary_preferences)}): "
+            f"El viajero tiene preferencia dietética o restricción '{', '.join(req.dietary_preferences)}'. "
+            f"Si en el catálogo de Google Places o en {city_name} existen restaurantes '{req.dietary_preferences[0]}', "
+            f"ES TOTALMENTE OBLIGATORIO que esos restaurantes APAREZCAN en la ruta en las franjas de almuerzo ('lunch') y cena ('dinner'). "
+            f"Por ejemplo, si la dieta es vegana, deben aparecer restaurantes veganos en la ruta. No sugieras mesones o restaurantes tradicionales incompatibles si existen locales especializados disponibles. "
+            f"En los motivos de selección ('selection_reasons') debes incluir la etiqueta 'Restaurante {req.dietary_preferences[0]}' u 'Opciones {req.dietary_preferences[0]}'."
             if req.dietary_preferences
             else "Dieta: Estándar (gastronomía local variada)."
         )
 
-        interests_list = (req.interests or []) + (req.custom_interests or [])
+        kids_clause = (
+            "🚨🚨 ACTIVIDADES PARA NIÑOS / FAMILIARES OBLIGATORIAS: "
+            "El viajero ha seleccionado 'Actividades para niños'. El itinerario DEBE incluir paradas dinámicas, atractivas y divertidas para niños y familias "
+            "(ej. parques infantiles o temáticos, acuarios, museos de ciencias interactivos, castillos, paseos en barco o jardines con áreas de juego). "
+            "Cada jornada del viaje debe tener al menos una parada orientada a los niños. "
+            "En sus motivos de selección ('selection_reasons') incluye la etiqueta 'Ideal niños' o 'Actividad familiar'."
+            if has_kids_activities
+            else None
+        )
+
         interests_clause = (
             f"Intereses y temáticas preferidas: {', '.join(interests_list)}"
             if interests_list and "Indiferente" not in interests_list
@@ -150,19 +168,80 @@ class ItineraryService:
             zone_name=f"Centro de {city_name}",
             db=db,
             category="all",
-            max_results=20
+            max_results=15
         )
 
+        # Consultar restaurantes específicos según la dieta del usuario
+        diet_verified_places = []
+        if req.dietary_preferences:
+            for diet_item in req.dietary_preferences[:2]:
+                specialized_diet_places = await PlacesService.get_verified_places(
+                    city_name=city_name,
+                    zone_name=f"Centro de {city_name}",
+                    db=db,
+                    category=f"diet:{diet_item}",
+                    max_results=8
+                )
+                diet_verified_places.extend(specialized_diet_places)
+
+        # Consultar actividades infantiles si han sido solicitadas
+        kids_verified_places = []
+        if has_kids_activities:
+            kids_verified_places = await PlacesService.get_verified_places(
+                city_name=city_name,
+                zone_name=f"Centro de {city_name}",
+                db=db,
+                category="kids_activities",
+                max_results=8
+            )
+
+        # Combinar en un único catálogo priorizado sin duplicados
+        combined_catalog: List[Dict[str, Any]] = []
+        seen_names = set()
+
+        # Primero: Restaurantes especializados en la dieta del usuario (MÁXIMA PRIORIDAD)
+        for dp in diet_verified_places:
+            if dp["name"].lower() not in seen_names:
+                dp_copy = dict(dp)
+                dp_copy["special_tag"] = f"RESTAURANTE ESPECIALIZADO: {req.dietary_preferences[0].upper()}"
+                combined_catalog.append(dp_copy)
+                seen_names.add(dp["name"].lower())
+
+        # Segundo: Actividades infantiles si se han solicitado
+        for kp in kids_verified_places:
+            if kp["name"].lower() not in seen_names:
+                kp_copy = dict(kp)
+                kp_copy["special_tag"] = "ACTIVIDAD INFANTIL / FAMILIAR"
+                combined_catalog.append(kp_copy)
+                seen_names.add(kp["name"].lower())
+
+        # Tercero: Lugares y monumentos generales
+        for vp in verified_places:
+            if vp["name"].lower() not in seen_names:
+                combined_catalog.append(vp)
+                seen_names.add(vp["name"].lower())
+
         verified_catalog_str = ""
-        if verified_places:
+        if combined_catalog:
             cat_lines = ["\nCATÁLOGO OFICIAL DE ESTABLECIMIENTOS Y LUGARES REALES VERIFICADOS POR GOOGLE PLACES (100% OPERATIVOS):"]
-            for vp in verified_places:
-                hours_str = ", ".join(vp.get("opening_hours", [])) if vp.get("opening_hours") else "Horario habitual"
+            for cp in combined_catalog:
+                tag_prefix = f"[{cp.get('special_tag')}] " if cp.get("special_tag") else f"[{cp.get('primary_type', 'lugar')}] "
+                hours_str = ", ".join(cp.get("opening_hours", [])) if cp.get("opening_hours") else "Horario habitual"
                 cat_lines.append(
-                    f"- [{vp.get('primary_type', 'lugar')}] {vp['name']} | Dirección: {vp['address']} | "
-                    f"Rating: {vp.get('rating', 4.5)}⭐ | Horarios: {hours_str[:80]} | Maps: {vp['maps_url']}"
+                    f"- {tag_prefix}{cp['name']} | Dirección: {cp['address']} | "
+                    f"Rating: {cp.get('rating', 4.5)}⭐ | Horarios: {hours_str[:80]} | Maps: {cp['maps_url']}"
                 )
             verified_catalog_str = "\n".join(cat_lines)
+
+        mandatory_requirements = [
+            f"1. {mobility_clause}",
+            f"2. {health_clause}",
+            f"3. {diet_clause}",
+            f"4. {interests_clause}",
+            f"5. {specific_places_clause}",
+        ]
+        if kids_clause:
+            mandatory_requirements.append(f"6. {kids_clause}")
 
         prompt = f"""
 Eres un guía turístico y planificador de itinerarios de élite a nivel mundial.
@@ -172,11 +251,7 @@ Genera un itinerario COMPLETO, REALISTA, DETALLADO y ALTAMENTE PERSONALIZADO par
 💰 Presupuesto total para comidas y actividades: {req.budget} {req.currency}
 
 REQUISITOS OBLIGATORIOS DEL VIAJERO:
-1. {mobility_clause}
-2. {health_clause}
-3. {diet_clause}
-4. {interests_clause}
-5. {specific_places_clause}
+{chr(10).join(mandatory_requirements)}
 
 {verified_catalog_str}
 
@@ -212,6 +287,10 @@ B. VERACIDAD, EXISTENCIA REAL Y CATÁLOGO GOOGLE PLACES:
    - Todos los restaurantes, tabernas, monumentos y bares propuestos DEBEN SER 100% REALES y existentes en "{city_name}".
    - PRIORIZA Y SELECCIONA los establecimientos del catálogo verificado de Google Places proporcionado arriba para cada comida, cena, visita y copas.
    - Si seleccionas un lugar del catálogo, utiliza EXACTAMENTE su nombre oficial y su dirección. Queda TERMINANTEMENTE PROHIBIDO inventar nombres genéricos o ficticios.
+
+B.1 ALIMENTACIÓN ESPECIALIZADA Y ACTIVIDADES PARA NIÑOS (OBLIGATORIO):
+   - RESTAURANTES SEGÚN ALIMENTACIÓN: Si el viajero tiene indicada alguna preferencia dietética (ej. vegana, vegetariana, sin gluten, halal, etc.) y en el catálogo verificado de Google Places o en la ciudad existen restaurantes de esa especialidad, ES TOTALMENTE OBLIGATORIO que esos restaurantes APAREZCAN en la ruta para el almuerzo ('lunch') o la cena ('dinner'). Si hay un restaurante vegano en la ciudad y la dieta es vegana, DEBE figurar en la ruta.
+   - ACTIVIDADES INFANTILES: Si se ha seleccionado 'Actividades para niños', el itinerario DEBE integrar actividades lúdicas, dinámicas y adaptadas a niños en cada día (parques infantiles o temáticos, acuarios, museos de ciencias interactivos, paseos en barco, castillos o espectáculos familiares).
 
 C. HORARIOS REALES Y LICENCIAS DE OCIO NOCTURNO:
    - Presta máxima atención a qué día de la semana cae cada jornada (por ejemplo, muchos museos cierran los lunes, tiendas los domingos).
@@ -508,19 +587,35 @@ Responde ÚNICAMENTE con un objeto JSON válido con la siguiente estructura exac
         )
 
         diet_rule = (
-            f"Dietas o alergias del viajero: {', '.join(diets)}. Si es bar/restaurante, DEBE contar con opciones para esta dieta."
+            f"🚨 REQUISITO DIETÉTICO OBLIGATORIO: El usuario tiene preferencia '{', '.join(diets)}'. Si es bar o restaurante, DEBE ser un establecimiento con opciones especializadas o adaptadas para {diets[0]}."
             if diets
             else "Dieta: Estándar (gastronomía local)."
         )
 
+        has_kids = any("niño" in str(i).lower() or "infantil" in str(i).lower() or "familia" in str(i).lower() for i in interests)
+
         # Obtener catálogo de lugares reales verificados con Google Places API para esta zona y categoría
+        places_category = replacement_type
+        if replacement_type in ("restaurant", "lunch", "dinner") and diets:
+            places_category = f"diet:{diets[0]}"
+        elif replacement_type == "activity" and has_kids:
+            places_category = "kids_activities"
+
         verified_candidates = await PlacesService.get_verified_places(
             city_name=city_name,
             zone_name=zone_name,
             db=db,
-            category=replacement_type,
+            category=places_category,
             max_results=10
         )
+        if not verified_candidates and places_category != replacement_type:
+            verified_candidates = await PlacesService.get_verified_places(
+                city_name=city_name,
+                zone_name=zone_name,
+                db=db,
+                category=replacement_type,
+                max_results=10
+            )
 
         verified_block = ""
         if verified_candidates:
