@@ -46,7 +46,7 @@ const GLOBAL_PACE_OPTIONS: Array<{
   {
     id: 'intense',
     icon: '⚡',
-    title: 'A full / Intenso',
+    title: 'Intenso',
     badge: '4+ actividades / día',
     description: 'Aprovecha cada hora del día con un itinerario dinámico de mañana a noche para ver el máximo posible.',
   },
@@ -293,7 +293,7 @@ export default function TripPaceStep({
                           currentDayPace === 'intense' && styles.dayPaceBtnTextActive,
                         ]}
                       >
-                        ⚡ A full
+                        ⚡ Intenso
                       </Text>
                     </Pressable>
                   </View>

@@ -526,7 +526,7 @@ export default function CreateTripWizardScreen({
                   ? '🌴 Relajado'
                   : globalPace === 'moderate'
                   ? '🚶‍♂️ Medio'
-                  : '⚡ A full'
+                  : '⚡ Intenso'
                 : '📅 Personalizado por días'}
             </Text>
           </View>
