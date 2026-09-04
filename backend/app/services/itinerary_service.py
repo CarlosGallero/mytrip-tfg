@@ -227,8 +227,9 @@ class ItineraryService:
             for cp in combined_catalog:
                 tag_prefix = f"[{cp.get('special_tag')}] " if cp.get("special_tag") else f"[{cp.get('primary_type', 'lugar')}] "
                 hours_str = ", ".join(cp.get("opening_hours", [])) if cp.get("opening_hours") else "Horario habitual"
+                price_info = f" | {cp.get('price_level_label')}" if cp.get("price_level_label") else ""
                 cat_lines.append(
-                    f"- {tag_prefix}{cp['name']} | Dirección: {cp['address']} | "
+                    f"- {tag_prefix}{cp['name']} | Dirección: {cp['address']}{price_info} | "
                     f"Rating: {cp.get('rating', 4.5)}⭐ | Horarios: {hours_str[:80]} | Maps: {cp['maps_url']}"
                 )
             verified_catalog_str = "\n".join(cat_lines)
@@ -303,9 +304,14 @@ C. HORARIOS REALES Y LICENCIAS DE OCIO NOCTURNO:
 D. OPTIMIZACIÓN GEOGRÁFICA (MISMA ZONA / BARRIO):
    - Todas las actividades y restaurantes de un mismo día DEBEN estar ubicados en la misma zona geográfica continua ("zone_name") para que el viajero pueda ir a pie en trayectos cortos de menos de 10 minutos.
 
-E. DISTRIBUCIÓN DEL PRESUPUESTO ({req.budget} {req.currency}):
-   - Distribuye el gasto total de forma flexible entre todos los días del viaje.
-   - Cada actividad y restaurante debe tener su coste estimado aproximado por persona en 'estimated_cost'. La suma total de 'daily_estimated_cost' debe ser coherente con el presupuesto total.
+E. DISTRIBUCIÓN DEL PRESUPUESTO Y PRECIOS BASADOS EN GOOGLE PLACES ({req.budget} {req.currency}):
+   - Cada establecimiento y lugar del catálogo verificado incluye, cuando está disponible en Google Places, su nivel oficial o rango de precios (ej. 'Precio Google: GRATUITO (0€)', 'Nivel Google: Económico ($ / ~8€-15€)', 'Nivel Google: Moderado ($$ / ~18€-30€)', 'Nivel Google: Alto ($$$ / ~35€-55€)').
+   - CALIBRA con precisión el 'estimated_cost' de la parada según este nivel oficial de Google Places:
+     * Si el lugar indica 'GRATUITO (0€)' o se trata de una plaza, playa, parque público o mirador abierto, el 'estimated_cost' DEBE SER EXACTAMENTE 0.0.
+     * Si es 'Económico ($)', asigna un coste realista de menú o tapas (~8€ a 15€ por persona).
+     * Si es 'Moderado ($$)', asigna el ticket medio de la ciudad (~18€ a 28€ por persona).
+     * Si es 'Alto ($$$)', asigna entre 35€ y 50€ por persona.
+   - La suma de 'daily_estimated_cost' debe ser coherente con el presupuesto total del viaje ({req.budget} {req.currency}).
 
 F. MOTIVOS DE SELECCIÓN ('selection_reasons'):
    - Cada slot debe incluir entre 2 y 4 etiquetas SÚPER BREVES (1 a 4 palabras por etiqueta, formato badge). NUNCA textos largos ni oraciones.
@@ -622,7 +628,8 @@ Responde ÚNICAMENTE con un objeto JSON válido con la siguiente estructura exac
             v_lines = ["\nCATÁLOGO OFICIAL DE ESTABLECIMIENTOS REALES VERIFICADOS POR GOOGLE PLACES:"]
             for vc in verified_candidates:
                 if vc["name"] not in existing_titles and current_title.lower() not in vc["name"].lower():
-                    v_lines.append(f"- {vc['name']} | Dirección: {vc['address']} | Rating: {vc.get('rating', 4.5)}⭐ | Maps: {vc['maps_url']}")
+                    price_info = f" | {vc.get('price_level_label')}" if vc.get('price_level_label') else ""
+                    v_lines.append(f"- {vc['name']} | Dirección: {vc['address']}{price_info} | Rating: {vc.get('rating', 4.5)}⭐ | Maps: {vc['maps_url']}")
             if len(v_lines) > 1:
                 verified_block = "\n".join(v_lines) + "\n\nREGLA OBLIGATORIA: Debes seleccionar preferentemente una de estas opciones verificadas usando su nombre y dirección exactos."
 

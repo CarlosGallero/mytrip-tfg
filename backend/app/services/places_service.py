@@ -88,7 +88,7 @@ class PlacesService:
                 "places.id,places.displayName,places.formattedAddress,"
                 "places.businessStatus,places.types,places.primaryType,"
                 "places.rating,places.userRatingCount,places.regularOpeningHours,"
-                "places.googleMapsUri,places.priceLevel"
+                "places.googleMapsUri,places.priceLevel,places.priceRange"
             ),
         }
         payload = {
@@ -122,6 +122,32 @@ class PlacesService:
                         types_list = p.get("types", [])
                         rating = float(p.get("rating", 0.0))
                         hours = p.get("regularOpeningHours", {}).get("weekdayDescriptions", [])
+                        price_level = p.get("priceLevel")
+                        price_range = p.get("priceRange")
+
+                        # Generar etiqueta descriptiva de precio para Gemini
+                        price_label = ""
+                        if price_range and "startPrice" in price_range and "endPrice" in price_range:
+                            start = price_range.get("startPrice", {}).get("units", "")
+                            end = price_range.get("endPrice", {}).get("units", "")
+                            curr = price_range.get("startPrice", {}).get("currencyCode", "EUR")
+                            if start and end:
+                                price_label = f"Rango Google: ~{start}-{end} {curr}"
+                        
+                        if not price_label and price_level:
+                            pl_str = str(price_level).upper()
+                            if "FREE" in pl_str:
+                                price_label = "Precio Google: GRATUITO (0€)"
+                            elif "INEXPENSIVE" in pl_str:
+                                price_label = "Nivel Google: Económico ($ / ~8€-15€)"
+                            elif "MODERATE" in pl_str:
+                                price_label = "Nivel Google: Moderado ($$ / ~18€-30€)"
+                            elif "VERY_EXPENSIVE" in pl_str:
+                                price_label = "Nivel Google: Lujo / Alta Cocina ($$$$ / >60€)"
+                            elif "EXPENSIVE" in pl_str:
+                                price_label = "Nivel Google: Alto ($$$ / ~35€-55€)"
+                            else:
+                                price_label = f"Nivel Google: {price_level}"
 
                         verified_places.append({
                             "place_id": p.get("id", ""),
@@ -133,6 +159,8 @@ class PlacesService:
                             "types": types_list,
                             "primary_type": p.get("primaryType", ""),
                             "opening_hours": hours,
+                            "price_level": price_level,
+                            "price_level_label": price_label,
                             "zone": clean_zone,
                             "city": clean_city,
                         })
