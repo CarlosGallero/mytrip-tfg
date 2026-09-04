@@ -7,7 +7,13 @@ from typing import Optional, Any, Tuple
 from google import genai
 from google.genai import types
 from app.core.config import settings
-from app.models.destination import DestinationInfoResponse, EstimatedDailyCost, ValidatePlaceResponse
+from app.models.destination import (
+    DestinationInfoResponse,
+    EstimatedDailyCost,
+    ValidatePlaceResponse,
+    TransportInfo,
+    AccommodationInfo
+)
 from app.utils.countries import get_country_iso_code, get_flag_image_url
 
 logger = logging.getLogger(__name__)
@@ -322,6 +328,106 @@ Responde ÚNICAMENTE con un objeto JSON válido con la siguiente estructura exac
         )
 
     @classmethod
+    async def get_transport_and_accommodation_info(
+        cls,
+        city: str,
+        country: str,
+        origin_country: str,
+        currency: str = "EUR",
+        db: Optional[Any] = None
+    ) -> Tuple[Optional[TransportInfo], Optional[AccommodationInfo]]:
+        """
+        Consulta a Gemini la información sobre cómo llegar/moverse (transporte) y alojamiento orientativo
+        para destinos que no contaban con esta información en MongoDB.
+        """
+        api_key = settings.GEMINI_API_KEY
+        if not api_key:
+            return (
+                TransportInfo(
+                    how_to_arrive=f"Conexiones regulares en vuelo, tren o carretera hacia {city}.",
+                    local_mobility=f"Red de transporte urbano y desplazamientos peatonales cómodos en {city}.",
+                    price_variation_factors="Los precios de billetes aumentan en temporada alta y con reservas de última hora.",
+                    estimated_range="Variable según medio y fecha de reserva"
+                ),
+                AccommodationInfo(
+                    average_price_per_night=f"60 {currency} - 110 {currency} / noche",
+                    category_breakdown=f"Hostels: 20-35 {currency} | Hoteles 3★: 60-90 {currency} | Apartamentos: 75-130 {currency}",
+                    seasonal_variation="Tarifas superiores durante temporada alta estival, fines de semana y festivos."
+                )
+            )
+
+        client = genai.Client(api_key=api_key)
+
+        prompt = f"""
+Eres un experto internacional en logística de viajes, transporte y alojamiento turístico.
+Proporciona información realista, concisa y estructurada para viajar desde "{origin_country}" a "{city}" ({country}).
+Moneda del usuario: "{currency}".
+
+Responde ÚNICAMENTE con un objeto JSON válido con la siguiente estructura exacta:
+{{
+  "transport_info": {{
+    "how_to_arrive": "Cómo llegar desde '{origin_country}' a '{city}' (avión, tren alta velocidad, coche o ferry según proceda) indicando opciones habituales y coste orientativo en {currency}.",
+    "local_mobility": "Cómo moverse dentro de '{city}' (metro, red de autobuses, tranvías, a pie o taxis) con precio medio aproximado del billete sencillo o abono diario en {currency}.",
+    "price_variation_factors": "Explicación clara de cómo fluctúa el precio del transporte según la temporada (alta en verano/festivos vs baja) y la proximidad de la fecha del viaje (comprar con semanas/meses de antelación vs última hora).",
+    "estimated_range": "Rango aproximado del transporte (ej. '35{currency} - 110{currency} según medio y antelación')"
+  }},
+  "accommodation_info": {{
+    "average_price_per_night": "Precio medio orientativo por noche para una habitación estándar o doble en {city} en {currency} (ej. '65{currency} - 115{currency} / noche').",
+    "category_breakdown": "Precios orientativos por categorías en {currency} (ej. 'Albergues/Hostels: 20-35{currency} | Hoteles 3-4★: 65-115{currency} | Apartamentos turísticos: 75-140{currency}').",
+    "seasonal_variation": "Explicación de cómo varía el precio del alojamiento según las fechas del viaje (temporada alta en verano o puentes, fines de semana y grandes eventos o festividades locales en {city})."
+  }}
+}}
+"""
+        for model_name in AVAILABLE_MODELS:
+            try:
+                response = client.models.generate_content(
+                    model=model_name,
+                    contents=prompt,
+                    config=types.GenerateContentConfig(
+                        response_mime_type="application/json",
+                        temperature=0.1
+                    )
+                )
+                if response and response.text:
+                    clean_text = cls._clean_json_text(response.text)
+                    data = json.loads(clean_text)
+
+                    t_data = data.get("transport_info", {})
+                    a_data = data.get("accommodation_info", {})
+
+                    t_obj = TransportInfo(
+                        how_to_arrive=str(t_data.get("how_to_arrive", f"Conexiones directas o con escala hacia {city}.")),
+                        local_mobility=str(t_data.get("local_mobility", f"Autobuses y recorridos peatonales en {city}.")),
+                        price_variation_factors=str(t_data.get("price_variation_factors", "Los precios aumentan significativamente en temporada alta y con poca antelación.")),
+                        estimated_range=str(t_data.get("estimated_range", f"Variable según medio ({currency})"))
+                    )
+
+                    a_obj = AccommodationInfo(
+                        average_price_per_night=str(a_data.get("average_price_per_night", f"60{currency} - 110{currency} / noche")),
+                        category_breakdown=str(a_data.get("category_breakdown", f"Hostels: 25{currency} | Hoteles: 75{currency} | Apartamentos: 90{currency}")),
+                        seasonal_variation=str(a_data.get("seasonal_variation", "Precios más elevados en verano, festivos y fines de semana."))
+                    )
+
+                    return (t_obj, a_obj)
+            except Exception as e:
+                logger.warning(f"Error generando transporte/alojamiento con {model_name}: {e}")
+                continue
+
+        return (
+            TransportInfo(
+                how_to_arrive=f"Conexiones regulares hacia {city}.",
+                local_mobility=f"Transporte público y recorridos peatonales cómodos en {city}.",
+                price_variation_factors="Precios sujetos a demanda estacional y antelación de compra.",
+                estimated_range=f"Variable ({currency})"
+            ),
+            AccommodationInfo(
+                average_price_per_night=f"60{currency} - 110{currency} / noche",
+                category_breakdown=f"Hostels económicos, hoteles medios y apartamentos turísticos en {city}.",
+                seasonal_variation="Mayor tarifa en temporada alta estival y fechas festivas."
+            )
+        )
+
+    @classmethod
     async def get_travel_info(
         cls,
         destination: str,
@@ -368,6 +474,56 @@ Responde ÚNICAMENTE con un objeto JSON válido con la siguiente estructura exac
                     # Obtener el coste diario específico de la ciudad desde la colección city_daily_costs
                     city_cost_obj = await cls.get_city_daily_cost(city_name, country_name, user_currency, db)
 
+                    # Comprobar si cached_doc ya contiene transporte y alojamiento
+                    raw_transport = cached_doc.get("transport_info")
+                    raw_accom = cached_doc.get("accommodation_info")
+                    transport_obj: Optional[TransportInfo] = None
+                    accom_obj: Optional[AccommodationInfo] = None
+
+                    if raw_transport and isinstance(raw_transport, dict):
+                        try:
+                            transport_obj = TransportInfo(**raw_transport)
+                        except Exception as e:
+                            logger.warning(f"Error parseando transport_info de caché: {e}")
+
+                    if raw_accom and isinstance(raw_accom, dict):
+                        try:
+                            accom_obj = AccommodationInfo(**raw_accom)
+                        except Exception as e:
+                            logger.warning(f"Error parseando accommodation_info de caché: {e}")
+
+                    # AUTO-ACTUALIZACIÓN INTELIGENTE: Si el documento en MongoDB es previo y carece de estos campos, completarlo
+                    if not transport_obj or not accom_obj:
+                        logger.info(f"🔄 Destino en caché '{clean_dest}' incompleto en MongoDB (sin transporte/alojamiento). Auto-actualizando...")
+                        t_obj, a_obj = await cls.get_transport_and_accommodation_info(
+                            city=city_name,
+                            country=country_name,
+                            origin_country=origin_country,
+                            currency=user_currency,
+                            db=db
+                        )
+                        if t_obj:
+                            transport_obj = t_obj
+                        if a_obj:
+                            accom_obj = a_obj
+
+                        if db is not None and (transport_obj or accom_obj):
+                            try:
+                                update_fields = {}
+                                if transport_obj:
+                                    update_fields["transport_info"] = transport_obj.model_dump()
+                                if accom_obj:
+                                    update_fields["accommodation_info"] = accom_obj.model_dump()
+                                update_fields["updated_at"] = datetime.utcnow()
+
+                                await db["country_travel_info"].update_one(
+                                    {"_id": cached_doc["_id"]},
+                                    {"$set": update_fields}
+                                )
+                                logger.info(f"✅ Documento de '{clean_dest}' en MongoDB actualizado exitosamente con transporte y alojamiento.")
+                            except Exception as update_err:
+                                logger.warning(f"Error al actualizar transporte/alojamiento en MongoDB: {update_err}")
+
                     return DestinationInfoResponse(
                         destination_city=city_name,
                         country_name=country_name,
@@ -385,7 +541,9 @@ Responde ÚNICAMENTE con un objeto JSON válido con la siguiente estructura exac
                         passport_application_url=pass_url,
                         passport_authority_name=pass_auth,
                         passport_instructions=pass_inst,
-                        estimated_daily_cost=city_cost_obj
+                        estimated_daily_cost=city_cost_obj,
+                        transport_info=transport_obj,
+                        accommodation_info=accom_obj
                     )
             except Exception as e:
                 logger.warning(f"Error consultando la caché de MongoDB: {e}")
@@ -424,6 +582,17 @@ Determina con precisión el país al que pertenece dicho destino y responde ÚNI
     "food_daily_cost": (número flotante con el gasto de 1 desayuno y 1 comida en restaurante típico en esa ciudad en {user_currency}),
     "activities_daily_cost": (número flotante con el gasto de 1 actividad o entrada turística diaria en esa ciudad en {user_currency}),
     "breakdown_details": "Explicación concisa y realista en español del presupuesto diario en esa ciudad en {user_currency} considerando 1 desayuno, 1 comida en restaurante y 1 actividad turística habitual."
+  }},
+  "transport_info": {{
+    "how_to_arrive": "Cómo llegar desde '{origin_country}' a la ciudad destino indicando opciones habituales y coste orientativo en {user_currency}.",
+    "local_mobility": "Cómo moverse dentro de la ciudad (metro, autobús, a pie, taxis) con precio medio aproximado del billete sencillo o abono en {user_currency}.",
+    "price_variation_factors": "Explicación clara de cómo fluctúa el precio del transporte según la temporada (alta en verano/festivos vs baja) y la proximidad de la fecha del viaje (comprar con semanas/meses de antelación vs última hora).",
+    "estimated_range": "Rango orientativo de coste de transporte (ej. '35{user_currency} - 110{user_currency}')"
+  }},
+  "accommodation_info": {{
+    "average_price_per_night": "Precio medio orientativo por noche para una habitación estándar en la ciudad destino en {user_currency} (ej. '65{user_currency} - 115{user_currency} / noche').",
+    "category_breakdown": "Precios orientativos por categorías en {user_currency} (ej. 'Albergues/Hostels: 20-35{user_currency} | Hoteles 3-4★: 65-115{user_currency} | Apartamentos: 75-140{user_currency}').",
+    "seasonal_variation": "Explicación de cómo varía el precio del alojamiento según las fechas del viaje (temporada alta en verano o puentes, fines de semana y festividades locales)."
   }}
 }}
 """
@@ -473,6 +642,33 @@ Determina con precisión el país al que pertenece dicho destino y responde ÚNI
                         except Exception as parse_err:
                             logger.warning(f"No se pudo parsear el gasto diario estimado: {parse_err}")
 
+                    # Parsear transporte
+                    transport_raw = data.get("transport_info", {})
+                    transport_obj = None
+                    if isinstance(transport_raw, dict) and transport_raw:
+                        try:
+                            transport_obj = TransportInfo(
+                                how_to_arrive=str(transport_raw.get("how_to_arrive", f"Conexiones regulares hacia {dest_city}.")),
+                                local_mobility=str(transport_raw.get("local_mobility", f"Transporte urbano en {dest_city}.")),
+                                price_variation_factors=str(transport_raw.get("price_variation_factors", "Varía según temporada y antelación de compra.")),
+                                estimated_range=str(transport_raw.get("estimated_range", f"Variable ({user_currency})"))
+                            )
+                        except Exception as t_err:
+                            logger.warning(f"Error parseando transport_info: {t_err}")
+
+                    # Parsear alojamiento
+                    accom_raw = data.get("accommodation_info", {})
+                    accom_obj = None
+                    if isinstance(accom_raw, dict) and accom_raw:
+                        try:
+                            accom_obj = AccommodationInfo(
+                                average_price_per_night=str(accom_raw.get("average_price_per_night", f"65{user_currency} - 115{user_currency} / noche")),
+                                category_breakdown=str(accom_raw.get("category_breakdown", f"Hostels, hoteles y apartamentos turísticos en {dest_city}.")),
+                                seasonal_variation=str(accom_raw.get("seasonal_variation", "Tarifas más elevadas en temporada alta y fechas clave."))
+                            )
+                        except Exception as a_err:
+                            logger.warning(f"Error parseando accommodation_info: {a_err}")
+
                     # 3. Guardar información general del país en country_travel_info
                     if db is not None:
                         try:
@@ -492,7 +688,9 @@ Determina con precisión el país al que pertenece dicho destino y responde ÚNI
                                 vaccination_details=vaccination_det,
                                 has_armed_conflict=has_conflict,
                                 conflict_details=conflict_det,
-                                estimated_daily_cost=daily_cost_obj
+                                estimated_daily_cost=daily_cost_obj,
+                                transport_info=transport_obj,
+                                accommodation_info=accom_obj
                             )
                         except Exception as save_err:
                             logger.warning(f"Error al guardar en country_travel_info: {save_err}")
@@ -527,7 +725,9 @@ Determina con precisión el país al que pertenece dicho destino y responde ÚNI
                         passport_application_url=pass_url,
                         passport_authority_name=pass_auth,
                         passport_instructions=pass_inst,
-                        estimated_daily_cost=final_city_cost
+                        estimated_daily_cost=final_city_cost,
+                        transport_info=transport_obj,
+                        accommodation_info=accom_obj
                     )
             except Exception as e:
                 logger.warning(f"Error con modelo {model_name}: {e}")
@@ -599,7 +799,9 @@ Determina con precisión el país al que pertenece dicho destino y responde ÚNI
         vaccination_details: str,
         has_armed_conflict: bool,
         conflict_details: str,
-        estimated_daily_cost: Optional[EstimatedDailyCost]
+        estimated_daily_cost: Optional[EstimatedDailyCost],
+        transport_info: Optional[TransportInfo] = None,
+        accommodation_info: Optional[AccommodationInfo] = None
     ):
         """Guarda o actualiza la información en la colección country_travel_info de MongoDB."""
         now = datetime.utcnow()
@@ -619,6 +821,8 @@ Determina con precisión el país al que pertenece dicho destino y responde ÚNI
             "has_armed_conflict": has_armed_conflict,
             "conflict_details": conflict_details,
             "estimated_daily_cost": estimated_daily_cost.model_dump() if estimated_daily_cost else None,
+            "transport_info": transport_info.model_dump() if transport_info else None,
+            "accommodation_info": accommodation_info.model_dump() if accommodation_info else None,
             "updated_at": now
         }
 
@@ -664,6 +868,19 @@ Determina con precisión el país al que pertenece dicho destino y responde ÚNI
             breakdown_details=f"Estimación estándar aproximada para 1 desayuno, 1 comida y 1 actividad en {city}."
         )
 
+        fallback_transport = TransportInfo(
+            how_to_arrive=f"Conexiones en vuelo, tren o carretera hacia {city}.",
+            local_mobility=f"Red de autobuses y opciones peatonales dentro de {city}.",
+            price_variation_factors="Los precios de billetes aumentan notablemente en temporada alta y con compra de última hora.",
+            estimated_range="Variable según medio y fechas"
+        )
+
+        fallback_accom = AccommodationInfo(
+            average_price_per_night=f"55{user_currency} - 100{user_currency} / noche",
+            category_breakdown=f"Albergues: 20-35{user_currency} | Hoteles 3★: 55-90{user_currency} | Apartamentos: 65-120{user_currency}",
+            seasonal_variation="Precios superiores en verano, puentes y festivos locales."
+        )
+
         return DestinationInfoResponse(
             destination_city=city,
             country_name=country,
@@ -683,7 +900,9 @@ Determina con precisión el país al que pertenece dicho destino y responde ÚNI
             passport_application_url=pass_url,
             passport_authority_name=pass_auth,
             passport_instructions=pass_inst,
-            estimated_daily_cost=fallback_cost
+            estimated_daily_cost=fallback_cost,
+            transport_info=fallback_transport,
+            accommodation_info=fallback_accom
         )
 
     @classmethod

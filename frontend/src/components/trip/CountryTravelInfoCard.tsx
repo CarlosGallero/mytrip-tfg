@@ -28,6 +28,9 @@ export default function CountryTravelInfoCard({
   const [showPassportInfo, setShowPassportInfo] = useState(false);
   const [showVaccineInfo, setShowVaccineInfo] = useState(false);
   const [showSecurityInfo, setShowSecurityInfo] = useState(false);
+  const [showBudgetInfo, setShowBudgetInfo] = useState(false);
+  const [showTransportInfo, setShowTransportInfo] = useState(false);
+  const [showAccommodationInfo, setShowAccommodationInfo] = useState(false);
 
   const hasPassport =
     externalHasPassport !== undefined ? externalHasPassport : internalHasPassport;
@@ -395,6 +398,182 @@ export default function CountryTravelInfoCard({
             </View>
           )}
         </View>
+
+        {/* 5. Presupuesto Diario Estimado en Destino */}
+        {info.estimated_daily_cost && (
+          <View style={styles.infoCard}>
+            <View style={styles.cardHeaderRow}>
+              <View style={[styles.iconCircle, { backgroundColor: '#F0FDF4' }]}>
+                <Text style={styles.iconText}>💰</Text>
+              </View>
+              <View style={styles.cardTitleContainer}>
+                <Text style={styles.cardLabel}>Presupuesto Diario Estimado</Text>
+                <Text style={styles.cardMainValue}>
+                  ~{info.estimated_daily_cost.total_daily_cost.toFixed(0)} {info.estimated_daily_cost.currency} / día por persona
+                </Text>
+              </View>
+
+              <Pressable
+                onPress={() => setShowBudgetInfo((prev) => !prev)}
+                style={({ pressed }) => [
+                  styles.infoToggleBtn,
+                  showBudgetInfo && styles.infoToggleBtnActive,
+                  pressed && styles.btnPressed,
+                ]}
+              >
+                <Text
+                  style={[
+                    styles.infoToggleBtnText,
+                    showBudgetInfo && styles.infoToggleBtnTextActive,
+                  ]}
+                >
+                  {showBudgetInfo ? '- info' : '+ info'}
+                </Text>
+              </Pressable>
+            </View>
+
+            
+
+            {showBudgetInfo && (
+              <View style={styles.expandedInfoContainer}>
+                <Text style={styles.expandedInfoText}>
+                  {info.estimated_daily_cost.breakdown_details}
+                </Text>
+                <Text style={styles.expandedInfoNote}>
+                  * Estimación orientativa por persona y día (1 desayuno, 1 comida en restaurante promedio y 1 visita o entrada turística). Excluye billetes de transporte de larga distancia y alojamiento.
+                </Text>
+              </View>
+            )}
+          </View>
+        )}
+
+        {/* 6. Transporte y Movilidad */}
+        {info.transport_info && (
+          <View style={styles.infoCard}>
+            <View style={styles.cardHeaderRow}>
+              <View style={[styles.iconCircle, { backgroundColor: '#F5F3FF' }]}>
+                <Text style={styles.iconText}>🚆</Text>
+              </View>
+              <View style={styles.cardTitleContainer}>
+                <Text style={styles.cardLabel}>Transporte y Conexiones</Text>
+                <Text style={styles.cardMainValue} numberOfLines={1}>
+                  {info.transport_info.estimated_range || 'Llegada y movilidad'}
+                </Text>
+              </View>
+
+              <Pressable
+                onPress={() => setShowTransportInfo((prev) => !prev)}
+                style={({ pressed }) => [
+                  styles.infoToggleBtn,
+                  showTransportInfo && styles.infoToggleBtnActive,
+                  pressed && styles.btnPressed,
+                ]}
+              >
+                <Text
+                  style={[
+                    styles.infoToggleBtnText,
+                    showTransportInfo && styles.infoToggleBtnTextActive,
+                  ]}
+                >
+                  {showTransportInfo ? '- info' : '+ info'}
+                </Text>
+              </Pressable>
+            </View>
+
+            {showTransportInfo && (
+              <View style={styles.expandedInfoContainer}>
+                <View style={styles.infoSectionBlock}>
+                  <Text style={styles.infoSectionTitle}>🛫 Cómo llegar al destino:</Text>
+                  <Text style={styles.expandedInfoText}>
+                    {info.transport_info.how_to_arrive}
+                  </Text>
+                </View>
+
+                <View style={styles.infoSectionBlock}>
+                  <Text style={styles.infoSectionTitle}>🚇 Cómo moverse por {info.destination_city}:</Text>
+                  <Text style={styles.expandedInfoText}>
+                    {info.transport_info.local_mobility}
+                  </Text>
+                </View>
+
+                <View style={styles.infoSectionBlock}>
+                  <Text style={styles.infoSectionTitle}>📈 Variación de precios y antelación:</Text>
+                  <Text style={styles.expandedInfoText}>
+                    {info.transport_info.price_variation_factors}
+                  </Text>
+                </View>
+
+                <Text style={styles.expandedInfoNote}>
+                  * Información exclusivamente orientativa. Las tarifas varían según la antelación de compra, temporada alta/baja y disponibilidad de las compañías de transporte.
+                </Text>
+              </View>
+            )}
+          </View>
+        )}
+
+        {/* 7. Alojamiento Orientativo */}
+        {info.accommodation_info && (
+          <View style={styles.infoCard}>
+            <View style={styles.cardHeaderRow}>
+              <View style={[styles.iconCircle, { backgroundColor: '#FFF7ED' }]}>
+                <Text style={styles.iconText}>🏨</Text>
+              </View>
+              <View style={styles.cardTitleContainer}>
+                <Text style={styles.cardLabel}>Alojamiento Orientativo</Text>
+                <Text style={styles.cardMainValue} numberOfLines={1}>
+                  {info.accommodation_info.average_price_per_night}
+                </Text>
+              </View>
+
+              <Pressable
+                onPress={() => setShowAccommodationInfo((prev) => !prev)}
+                style={({ pressed }) => [
+                  styles.infoToggleBtn,
+                  showAccommodationInfo && styles.infoToggleBtnActive,
+                  pressed && styles.btnPressed,
+                ]}
+              >
+                <Text
+                  style={[
+                    styles.infoToggleBtnText,
+                    showAccommodationInfo && styles.infoToggleBtnTextActive,
+                  ]}
+                >
+                  {showAccommodationInfo ? '- info' : '+ info'}
+                </Text>
+              </Pressable>
+            </View>
+
+            {showAccommodationInfo && (
+              <View style={styles.expandedInfoContainer}>
+                <View style={styles.infoSectionBlock}>
+                  <Text style={styles.infoSectionTitle}>🛏️ Precio medio por noche:</Text>
+                  <Text style={styles.expandedInfoText}>
+                    Habitación estándar / doble: {info.accommodation_info.average_price_per_night}
+                  </Text>
+                </View>
+
+                <View style={styles.infoSectionBlock}>
+                  <Text style={styles.infoSectionTitle}>🏷️ Precios orientativos por categoría:</Text>
+                  <Text style={styles.expandedInfoText}>
+                    {info.accommodation_info.category_breakdown}
+                  </Text>
+                </View>
+
+                <View style={styles.infoSectionBlock}>
+                  <Text style={styles.infoSectionTitle}>📅 Variación según temporada y fechas:</Text>
+                  <Text style={styles.expandedInfoText}>
+                    {info.accommodation_info.seasonal_variation}
+                  </Text>
+                </View>
+
+                <Text style={styles.expandedInfoNote}>
+                  * Estimación orientativa. Los precios reales dependen de la ubicación exacta, fechas del viaje, antelación de reserva y temporada turística.
+                </Text>
+              </View>
+            )}
+          </View>
+        )}
       </View>
     </ScrollView>
   );
@@ -791,5 +970,40 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: '800',
     textAlign: 'center',
+  },
+  miniBreakdownRow: {
+    flexDirection: 'row',
+    gap: 8,
+    marginTop: 10,
+    flexWrap: 'wrap',
+  },
+  miniBreakdownPill: {
+    backgroundColor: '#F8FAFC',
+    borderRadius: 10,
+    paddingVertical: 4,
+    paddingHorizontal: 10,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+  },
+  miniBreakdownPillText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: colors.text,
+  },
+  infoSectionBlock: {
+    marginBottom: 12,
+  },
+  infoSectionTitle: {
+    fontSize: 13,
+    fontWeight: '800',
+    color: colors.text,
+    marginBottom: 3,
+  },
+  expandedInfoNote: {
+    fontSize: 11,
+    fontStyle: 'italic',
+    color: colors.textMuted,
+    marginTop: 8,
+    lineHeight: 16,
   },
 });

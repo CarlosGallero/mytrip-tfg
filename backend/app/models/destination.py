@@ -41,6 +41,17 @@ class EstimatedDailyCost(BaseModel):
     activities_daily_cost: float = Field(..., description="Gasto diario estimado en 1 actividad turística/cultural")
     breakdown_details: str = Field(..., description="Explicación del desglose del coste estimado diario para la ciudad")
 
+class TransportInfo(BaseModel):
+    how_to_arrive: str = Field(..., description="Cómo llegar desde el país de origen (vuelo, tren, coche, ferry) y coste orientativo")
+    local_mobility: str = Field(..., description="Cómo moverse en el destino (metro, autobús, a pie, taxis) y precio aproximado del billete o abono")
+    price_variation_factors: str = Field(..., description="Cómo varía el precio según la temporada (alta/baja) y la antelación de compra")
+    estimated_range: str = Field(..., description="Rango orientativo de coste de transporte (ej. '30€ - 90€')")
+
+class AccommodationInfo(BaseModel):
+    average_price_per_night: str = Field(..., description="Precio medio aproximado por noche por habitación estándar (ej. '60€ - 110€ / noche')")
+    category_breakdown: str = Field(..., description="Precios orientativos por tipo (albergues/hostels, hoteles 3-4 estrellas y apartamentos turísticos)")
+    seasonal_variation: str = Field(..., description="Cómo fluctúan los precios según temporada alta (verano, festivos), eventos o fechas")
+
 class DestinationInfoResponse(BaseModel):
     destination_city: str = Field(..., description="Ciudad destino identificada")
     country_name: str = Field(..., description="Nombre oficial del país destino en español")
@@ -70,6 +81,14 @@ class DestinationInfoResponse(BaseModel):
     estimated_daily_cost: Optional[EstimatedDailyCost] = Field(
         default=None,
         description="Presupuesto diario medio estimado por persona en esa ciudad (1 desayuno + 1 comida + 1 actividad)"
+    )
+    transport_info: Optional[TransportInfo] = Field(
+        default=None,
+        description="Información orientativa sobre transporte y cómo llegar"
+    )
+    accommodation_info: Optional[AccommodationInfo] = Field(
+        default=None,
+        description="Información orientativa sobre precios de alojamiento"
     )
 
 class PassportLinkInDB(BaseModel):
@@ -107,5 +126,7 @@ class CountryTravelInfoInDB(BaseModel):
     has_armed_conflict: bool
     conflict_details: str
     estimated_daily_cost: Optional[EstimatedDailyCost] = None
+    transport_info: Optional[TransportInfo] = None
+    accommodation_info: Optional[AccommodationInfo] = None
     created_at: datetime = Field(default_factory=datetime.utcnow)
     updated_at: datetime = Field(default_factory=datetime.utcnow)

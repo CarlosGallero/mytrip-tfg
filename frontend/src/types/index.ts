@@ -6,6 +6,19 @@ export interface EstimatedDailyCost {
   breakdown_details: string;
 }
 
+export interface TransportInfo {
+  how_to_arrive: string;
+  local_mobility: string;
+  price_variation_factors: string;
+  estimated_range: string;
+}
+
+export interface AccommodationInfo {
+  average_price_per_night: string;
+  category_breakdown: string;
+  seasonal_variation: string;
+}
+
 export interface DestinationTravelInfo {
   destination_city: string;
   country_name: string;
@@ -24,6 +37,8 @@ export interface DestinationTravelInfo {
   passport_authority_name?: string | null;
   passport_instructions?: string | null;
   estimated_daily_cost?: EstimatedDailyCost | null;
+  transport_info?: TransportInfo | null;
+  accommodation_info?: AccommodationInfo | null;
 }
 
 export type TripPaceLevel = 'relaxed' | 'moderate' | 'intense';
