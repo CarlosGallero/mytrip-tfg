@@ -1,8 +1,7 @@
 from datetime import datetime, timedelta
 from typing import Union
 from passlib.context import CryptContext
-import jwt
-from jwt.exceptions import PyJWTError as JWTError
+from jose import jwt, JWTError
 from app.core.config import settings
 
 # Configuración de contexto de encriptación
